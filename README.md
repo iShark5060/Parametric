@@ -4,13 +4,13 @@ A Warframe mod builder and build planner. Equip mods, arcanes, and Archon Shards
 
 ## Tech Stack
 
-| Layer    | Technology                                       |
-| -------- | ------------------------------------------------ |
-| Client   | React 19, React Router 7, Tailwind CSS 4, Vite 7 |
-| Server   | Express 5, TypeScript, better-sqlite3            |
-| Auth     | argon2, express-session, csrf-sync               |
-| Tooling  | ESLint 9, Prettier, Vitest, GitHub Actions       |
-| Runtime  | Node >= 25, PM2                                  |
+| Layer   | Technology                                       |
+| ------- | ------------------------------------------------ |
+| Client  | React 19, React Router 7, Tailwind CSS 4, Vite 7 |
+| Server  | Express 5, TypeScript, better-sqlite3            |
+| Auth    | argon2, express-session, csrf-sync               |
+| Tooling | ESLint 9, Prettier, Vitest, GitHub Actions       |
+| Runtime | Node >= 25, PM2                                  |
 
 ## Getting Started
 
@@ -47,19 +47,19 @@ npm start       # runs dist/server/index.js
 
 Copy `.env.example` to `.env` and fill in production values:
 
-| Variable                     | Required | Description                                         |
-| ---------------------------- | -------- | --------------------------------------------------- |
-| `NODE_ENV`                   | Yes      | `production` for deploys                            |
-| `PORT`                       | No       | Server port (default `3001`)                        |
-| `SESSION_SECRET`             | Yes      | Random string, 32+ chars (fatal if missing in prod) |
-| `CENTRAL_DB_PATH`            | No       | Absolute path to shared central.db                  |
-| `TRUST_PROXY`                | No       | `1` when behind nginx/caddy                         |
-| `SECURE_COOKIES`             | No       | `1` for HTTPS cookie flag                           |
-| `COOKIE_DOMAIN`              | No       | Domain for cross-subdomain session sharing          |
-| `AUTH_MAX_ATTEMPTS`          | No       | Login attempts before lockout (default `5`)         |
-| `AUTH_LOCKOUT_MINUTES`       | No       | Lockout duration (default `15`)                     |
-| `AUTH_ATTEMPT_WINDOW_MINUTES`| No       | Sliding window for attempt counting (default `15`)  |
-| `DEV_SKIP_AUTH`              | No       | `1` to disable auth locally (ignored in production) |
+| Variable                      | Required | Description                                         |
+| ----------------------------- | -------- | --------------------------------------------------- |
+| `NODE_ENV`                    | Yes      | `production` for deploys                            |
+| `PORT`                        | No       | Server port (default `3001`)                        |
+| `SESSION_SECRET`              | Yes      | Random string, 32+ chars (fatal if missing in prod) |
+| `CENTRAL_DB_PATH`             | No       | Absolute path to shared central.db                  |
+| `TRUST_PROXY`                 | No       | `1` when behind nginx/caddy                         |
+| `SECURE_COOKIES`              | No       | `1` for HTTPS cookie flag                           |
+| `COOKIE_DOMAIN`               | No       | Domain for cross-subdomain session sharing          |
+| `AUTH_MAX_ATTEMPTS`           | No       | Login attempts before lockout (default `5`)         |
+| `AUTH_LOCKOUT_MINUTES`        | No       | Lockout duration (default `15`)                     |
+| `AUTH_ATTEMPT_WINDOW_MINUTES` | No       | Sliding window for attempt counting (default `15`)  |
+| `DEV_SKIP_AUTH`               | No       | `1` to disable auth locally (ignored in production) |
 
 ## Project Structure
 
@@ -94,16 +94,16 @@ Parametric/
 
 ## Scripts
 
-| Command              | Description                                |
-| -------------------- | ------------------------------------------ |
-| `npm run dev`        | Start dev server + client concurrently     |
-| `npm run build`      | Production build (server + client)         |
-| `npm start`          | Run production server                      |
-| `npm run lint`       | Run ESLint                                 |
-| `npm run lint:fix`   | Run ESLint with auto-fix                   |
-| `npm run format`     | Format all files with Prettier             |
-| `npm run check-format` | Check formatting (CI)                   |
-| `npm test`           | Run tests with Vitest                      |
+| Command                | Description                            |
+| ---------------------- | -------------------------------------- |
+| `npm run dev`          | Start dev server + client concurrently |
+| `npm run build`        | Production build (server + client)     |
+| `npm start`            | Run production server                  |
+| `npm run lint`         | Run ESLint                             |
+| `npm run lint:fix`     | Run ESLint with auto-fix               |
+| `npm run format`       | Format all files with Prettier         |
+| `npm run check-format` | Check formatting (CI)                  |
+| `npm test`             | Run tests with Vitest                  |
 
 ## Deployment
 
