@@ -52,8 +52,8 @@ export function processExports(): {
   // Process Mods
   const upgradesData = readExport('ExportUpgrades_en');
   if (upgradesData) {
-    counts.mods = processMods(upgradesData);
     counts.modSets = processModSets(upgradesData);
+    counts.mods = processMods(upgradesData);
     // Backfill descriptions from level stats for any mods still missing them
     backfillModDescriptions();
   }
@@ -478,6 +478,10 @@ function processMods(data: Record<string, unknown[]>): number {
     VALUES (?, ?, ?)
   `);
 
+  const modSetExistsStmt = db.prepare(
+    'SELECT 1 FROM mod_sets WHERE unique_name = ? LIMIT 1',
+  );
+
   const tx = db.transaction(() => {
     for (const item of items) {
       const isAugment = !!item.subtype;
@@ -527,7 +531,13 @@ function processMods(data: Record<string, unknown[]>): number {
         description = JSON.stringify(baseDesc);
       }
 
-      const modSetRef = (item.modSet as string) ?? null;
+      const rawModSetRef =
+        typeof item.modSet === 'string' ? (item.modSet as string) : null;
+      const modSetRef =
+        rawModSetRef &&
+        modSetExistsStmt.get(rawModSetRef) !== undefined
+          ? rawModSetRef
+          : null;
 
       modStmt.run(
         item.uniqueName,
