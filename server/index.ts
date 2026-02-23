@@ -8,6 +8,7 @@ import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { hasAccess, isAuthenticated, type AuthSession } from './auth/auth.js';
 import {
   requireAuthApi,
   requireAdmin,
@@ -161,6 +162,9 @@ app.use(
 app.use('/images', express.static(IMAGES_DIR));
 
 app.use('/icons', express.static(path.join(PROJECT_ROOT, 'icons')));
+app.get('/favicon.ico', (_req, res) => {
+  res.sendFile(path.join(PROJECT_ROOT, 'favicon.ico'));
+});
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -169,7 +173,32 @@ app.use('/api', (_req, res) => {
 if (NODE_ENV === 'production') {
   const clientDir = path.resolve(__dirname, '..', 'client');
   app.use(publicPageLimiter, express.static(clientDir));
-  app.get(/.*/, publicPageLimiter, (_req, res) => {
+
+  app.get('/login', publicPageLimiter, (req, res) => {
+    const authSession = req.session as AuthSession;
+    const userId = authSession?.user_id;
+    if (
+      isAuthenticated(authSession) &&
+      typeof userId === 'number' &&
+      hasAccess(userId, GAME_ID)
+    ) {
+      res.redirect('/builder');
+      return;
+    }
+    res.sendFile(path.join(clientDir, 'index.html'));
+  });
+
+  app.get(/.*/, publicPageLimiter, (req, res) => {
+    const authSession = req.session as AuthSession;
+    const userId = authSession?.user_id;
+    const allowed =
+      isAuthenticated(authSession) &&
+      typeof userId === 'number' &&
+      hasAccess(userId, GAME_ID);
+    if (!allowed) {
+      res.redirect('/login');
+      return;
+    }
     res.sendFile(path.join(clientDir, 'index.html'));
   });
 }

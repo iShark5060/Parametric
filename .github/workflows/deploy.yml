@@ -47,6 +47,7 @@ jobs:
         run: |
           mkdir -p /tmp/deploy
           cp -r dist/ /tmp/deploy/
+          cp -r icons/ /tmp/deploy/
           cp package*.json /tmp/deploy/
           cp ecosystem.config.cjs /tmp/deploy/
           if [ -f favicon.ico ]; then cp favicon.ico /tmp/deploy/; fi
