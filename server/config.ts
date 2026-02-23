@@ -27,9 +27,6 @@ export const SESSION_SECRET =
   process.env.SESSION_SECRET || DEFAULT_SESSION_SECRET;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 
-export const DEV_SKIP_AUTH =
-  process.env.DEV_SKIP_AUTH === '1' && NODE_ENV !== 'production';
-
 if (NODE_ENV === 'production' && SESSION_SECRET === DEFAULT_SESSION_SECRET) {
   console.error(
     '[FATAL] SESSION_SECRET must be set in production. Refusing to start with the default secret.',

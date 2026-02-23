@@ -29,12 +29,10 @@ npm install
 ### Development
 
 ```bash
-npm run dev
+npm run dev:client
 ```
 
-This starts both the Express API server (port 3001) and the Vite dev server (port 5173) concurrently. The Vite dev server proxies `/api`, `/icons`, and `/images` requests to the backend.
-
-A `.env.development` file is included with `DEV_SKIP_AUTH=1` so you can work without authentication in local development.
+This starts only the Vite client dev server (port 5173).
 
 ### Production Build
 
@@ -59,7 +57,6 @@ Copy `.env.example` to `.env` and fill in production values:
 | `AUTH_MAX_ATTEMPTS`           | No       | Login attempts before lockout (default `5`)         |
 | `AUTH_LOCKOUT_MINUTES`        | No       | Lockout duration (default `15`)                     |
 | `AUTH_ATTEMPT_WINDOW_MINUTES` | No       | Sliding window for attempt counting (default `15`)  |
-| `DEV_SKIP_AUTH`               | No       | `1` to disable auth locally (ignored in production) |
 
 ## Project Structure
 
@@ -96,7 +93,7 @@ Parametric/
 
 | Command                | Description                            |
 | ---------------------- | -------------------------------------- |
-| `npm run dev`          | Start dev server + client concurrently |
+| `npm run dev:client`   | Start Vite client dev server           |
 | `npm run build`        | Production build (server + client)     |
 | `npm start`            | Run production server                  |
 | `npm run lint`         | Run ESLint                             |
@@ -111,7 +108,7 @@ The project deploys via GitHub Actions on push to `main`. The workflow:
 
 1. Builds the server and client
 2. Bundles `dist/` with production `node_modules`
-3. Rsyncs to the server, preserving `data/`, `icons/`, `import/`, `logs/`, and `.env`
+3. Rsyncs to the server, preserving `data/`, `icons/`, `logs/`, and `.env`
 4. Restarts the PM2 process
 
 First-time server setup requires manually placing `.env` and `ecosystem.config.cjs`.

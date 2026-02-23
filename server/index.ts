@@ -17,7 +17,6 @@ import {
   PORT,
   SESSION_SECRET,
   NODE_ENV,
-  DEV_SKIP_AUTH,
   CENTRAL_DB_PATH,
   TRUST_PROXY,
   SECURE_COOKIES,
@@ -94,39 +93,33 @@ app.use(
   }),
 );
 
-if (DEV_SKIP_AUTH) {
-  console.warn(
-    `[${APP_NAME}] ⚠ AUTH DISABLED (DEV_SKIP_AUTH=1). Do NOT use in production.`,
-  );
-} else {
-  const { csrfSynchronisedProtection, generateToken } = csrfSync({
-    getTokenFromRequest: (req: express.Request) => {
-      if (req.body?._csrf) return req.body._csrf as string;
-      const q = req.query?._csrf;
-      if (Array.isArray(q)) return (q[0] as string) ?? null;
-      if (typeof q === 'string') return q;
-      const header = req.headers['x-csrf-token'] || req.headers['x-xsrf-token'];
-      return (Array.isArray(header) ? header[0] : header) ?? null;
-    },
-    getTokenFromState: (req) => {
-      const s = req.session;
-      if (!s) return null;
-      return (s as { csrfToken?: string }).csrfToken ?? null;
-    },
-    storeTokenInState: (req, token) => {
-      if (req.session) {
-        req.session.csrfToken = token as string;
-      }
-    },
-  });
+const { csrfSynchronisedProtection, generateToken } = csrfSync({
+  getTokenFromRequest: (req: express.Request) => {
+    if (req.body?._csrf) return req.body._csrf as string;
+    const q = req.query?._csrf;
+    if (Array.isArray(q)) return (q[0] as string) ?? null;
+    if (typeof q === 'string') return q;
+    const header = req.headers['x-csrf-token'] || req.headers['x-xsrf-token'];
+    return (Array.isArray(header) ? header[0] : header) ?? null;
+  },
+  getTokenFromState: (req) => {
+    const s = req.session;
+    if (!s) return null;
+    return (s as { csrfToken?: string }).csrfToken ?? null;
+  },
+  storeTokenInState: (req, token) => {
+    if (req.session) {
+      req.session.csrfToken = token as string;
+    }
+  },
+});
 
-  app.use(csrfSynchronisedProtection);
+app.use(csrfSynchronisedProtection);
 
-  app.use((req, res, next) => {
-    (res.locals as { csrfToken?: string }).csrfToken = generateToken(req);
-    next();
-  });
-}
+app.use((req, res, next) => {
+  (res.locals as { csrfToken?: string }).csrfToken = generateToken(req);
+  next();
+});
 
 // Rate limiting on auth endpoints
 const authLimiter = rateLimit({
@@ -140,15 +133,9 @@ app.use('/api/auth', authLimiter);
 // Auth routes (login, register, csrf, etc.) - no game access required
 app.use('/api/auth', authRouter);
 
-if (DEV_SKIP_AUTH) {
-  app.use('/api/import', importRouter);
-  app.use('/api/corpus', corpusRouter);
-  app.use('/api', apiRouter);
-} else {
-  app.use('/api/import', requireAdmin, importRouter);
-  app.use('/api/corpus', requireAdmin, corpusRouter);
-  app.use('/api', requireAuthApi, requireGameAccess(GAME_ID), apiRouter);
-}
+app.use('/api/import', requireAdmin, importRouter);
+app.use('/api/corpus', requireAdmin, corpusRouter);
+app.use('/api', requireAuthApi, requireGameAccess(GAME_ID), apiRouter);
 
 app.use('/images', express.static(IMAGES_DIR));
 

@@ -7,6 +7,7 @@ module.exports = {
       script: './dist/server/index.js',
       cwd: path.dirname(__filename),
       interpreter: 'node',
+      node_args: '--env-file=.env',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
