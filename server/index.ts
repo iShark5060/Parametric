@@ -142,6 +142,13 @@ const appApiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const publicPageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Auth routes (login, register, csrf, etc.) - no game access required
 app.use('/api/auth', authRouter);
 
@@ -165,8 +172,8 @@ app.use('/api', (_req, res) => {
 
 if (NODE_ENV === 'production') {
   const clientDir = path.resolve(__dirname, '..', 'client');
-  app.use(express.static(clientDir));
-  app.get('*', (_req, res) => {
+  app.use(publicPageLimiter, express.static(clientDir));
+  app.get(/.*/, publicPageLimiter, (_req, res) => {
     res.sendFile(path.join(clientDir, 'index.html'));
   });
 }
