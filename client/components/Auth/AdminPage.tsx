@@ -162,7 +162,7 @@ export function AdminPage() {
 
   if (loading) {
     return (
-      <div className="glass-panel flex h-64 items-center justify-center">
+      <div className="glass-shell flex h-64 items-center justify-center">
         <p className="text-muted">Loading...</p>
       </div>
     );
@@ -170,7 +170,7 @@ export function AdminPage() {
 
   if (error) {
     return (
-      <div className="glass-panel p-8">
+      <div className="glass-shell p-8">
         <div className="error-msg">{error}</div>
         <p className="mt-4 text-sm text-muted">
           You may need to be logged in as an admin to access this page.
@@ -184,7 +184,7 @@ export function AdminPage() {
       <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
 
       {/* Create user */}
-      <div className="glass-panel p-6">
+      <div className="glass-surface p-6">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
           Create User
         </h2>
@@ -244,7 +244,7 @@ export function AdminPage() {
       </div>
 
       {/* User list */}
-      <div className="glass-panel overflow-hidden">
+      <div className="glass-shell overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-glass-border">
@@ -371,7 +371,7 @@ function ArchonShardAdmin() {
   };
 
   return (
-    <div className="glass-panel p-6">
+    <div className="glass-surface p-6">
       <h2 className="mb-4 text-lg font-semibold text-foreground">
         Archon Shards
       </h2>
@@ -383,7 +383,7 @@ function ArchonShardAdmin() {
         {shards.map((shard) => (
           <div
             key={shard.id}
-            className="rounded-lg border border-glass-border p-3"
+            className="glass-surface rounded-lg p-3"
           >
             <div className="mb-2 flex items-center gap-2">
               <img

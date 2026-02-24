@@ -8,40 +8,74 @@
    ========================================================================== */
 @theme {
   /* Foreground / text */
-  --color-foreground: #e5e7eb;
-  --color-muted: #9ca3af;
+  --color-foreground: #f8fafc;
+  --color-muted: #c7c7cf;
+
+  /* Primary scale */
+  --color-primary-500: rgb(99, 99, 255);
+  --color-primary-400: rgb(122, 115, 255);
+  --color-primary-300: rgb(143, 132, 255);
+  --color-primary-200: rgb(161, 149, 255);
+  --color-primary-100: rgb(179, 166, 255);
 
   /* Accent */
-  --color-accent: #0ea5e9;
+  --color-accent: var(--color-primary-500);
 
   /* Semantic */
-  --color-success: #22c55e;
-  --color-success-rgb: 34, 197, 94;
-  --color-warning: #f59e0b;
-  --color-warning-rgb: 245, 158, 11;
-  --color-danger: #ef4444;
-  --color-danger-rgb: 239, 68, 68;
+  --color-success: #47d5a6;
+  --color-success-rgb: 71, 213, 166;
+  --color-warning: #d7ac61;
+  --color-warning-rgb: 215, 172, 97;
+  --color-danger: #d94a4a;
+  --color-danger-rgb: 217, 74, 74;
+  --color-info: #4077d1;
+  --color-info-rgb: 64, 119, 209;
   --color-unavailable: #6b7280;
   --color-unavailable-rgb: 107, 114, 128;
 
+  /* Surface scale */
+  --color-surface-500: rgb(28, 26, 38);
+  --color-surface-400: rgb(49, 47, 58);
+  --color-surface-300: rgb(71, 69, 80);
+  --color-surface-200: rgb(95, 93, 103);
+  --color-surface-100: rgb(120, 118, 126);
+
   /* Glass-morphism palette */
-  --color-glass: rgba(255, 255, 255, 0.02);
+  --color-glass: rgba(255, 255, 255, 0.024);
   --color-glass-border: rgba(255, 255, 255, 0.08);
   --color-glass-border-hover: rgba(255, 255, 255, 0.2);
   --color-glass-hover: rgba(255, 255, 255, 0.05);
-  --color-glass-active: rgba(255, 255, 255, 0.1);
-  --color-glass-divider: rgba(255, 255, 255, 0.04);
+  --color-glass-active: rgba(255, 255, 255, 0.12);
+  --color-glass-divider: rgba(255, 255, 255, 0.06);
 
   /* Surfaces */
-  --color-surface-modal: #1f2937;
-  --color-surface-thead: rgba(30, 35, 45, 0.92);
+  --color-surface-modal: rgba(255, 255, 255, 0.024);
+  --color-surface-thead: rgba(22, 20, 33, 0.88);
 
   /* Gradient endpoints (body background) */
-  --color-bg-start: #272b36;
-  --color-bg-end: #050507;
+  --color-bg-start: #000000;
+  --color-bg-end: #0f172a;
+  --color-bg-glow: rgba(100, 116, 139, 0.2);
 
   /* Shadows */
-  --shadow-panel: 0 2px 2px rgba(0, 0, 0, 0.15);
+  --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.25);
+
+  /* Damage types (semanticized for charts/cards) */
+  --color-dmg-impact: #8899aa;
+  --color-dmg-puncture: #aabbcc;
+  --color-dmg-slash: #cc8866;
+  --color-dmg-heat: #ff6633;
+  --color-dmg-cold: #66ccff;
+  --color-dmg-electricity: #cccc00;
+  --color-dmg-toxin: #33cc33;
+  --color-dmg-blast: #ff9933;
+  --color-dmg-radiation: #cccc66;
+  --color-dmg-gas: #66cc99;
+  --color-dmg-magnetic: #6699cc;
+  --color-dmg-viral: #66cccc;
+  --color-dmg-corrosive: #cccc33;
+  --color-dmg-void: #cc99ff;
+  --color-dmg-true: #ffffff;
 
   /* Mod rarity colours */
   --color-rarity-common: #90784e;
@@ -56,12 +90,37 @@
 }
 
 :root {
+  --theme-mode: dark;
+  --ascii-opacity: 0.05;
   --color-accent-weak: color-mix(in srgb, var(--color-accent) 10%, transparent);
   --color-accent-weak-2: color-mix(
     in srgb,
     var(--color-accent) 20%,
     transparent
   );
+}
+
+html.theme-light {
+  --theme-mode: light;
+  --ascii-opacity: 0.1;
+  --color-foreground: #000000;
+  --color-muted: #4b5563;
+  --color-glass: rgba(255, 255, 255, 0.5);
+  --color-glass-border: rgba(57, 57, 57, 0.2);
+  --color-glass-border-hover: rgba(57, 57, 57, 0.32);
+  --color-glass-hover: rgba(255, 255, 255, 0.65);
+  --color-glass-active: rgba(255, 255, 255, 0.75);
+  --color-glass-divider: rgba(20, 20, 20, 0.12);
+  --color-surface-modal: rgba(255, 255, 255, 0.56);
+  --color-surface-thead: rgba(236, 240, 247, 0.88);
+  --color-bg-start: #e2e8f0;
+  --color-bg-end: #f8fafc;
+  --color-bg-glow: rgba(148, 163, 184, 0.28);
+  --shadow-panel: 0 8px 28px rgba(15, 23, 42, 0.16);
+}
+
+html.theme-dark {
+  --theme-mode: dark;
 }
 
 /* ==========================================================================
@@ -89,11 +148,10 @@
       sans-serif;
     margin: 0;
     color: var(--color-foreground);
-    background: linear-gradient(
-      to bottom,
-      var(--color-bg-start) 0%,
-      var(--color-bg-end) 100%
-    );
+    background:
+      radial-gradient(circle at 10% 10%, var(--color-bg-glow), transparent 40%),
+      radial-gradient(circle at 85% 15%, var(--color-bg-glow), transparent 45%),
+      linear-gradient(to bottom, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
     background-size: 100% 100%;
     background-repeat: no-repeat;
     background-attachment: fixed;
@@ -112,14 +170,79 @@
    COMPONENTS
    ========================================================================== */
 @layer components {
-  /* Glass panel */
-  .glass-panel {
+  /* Reusable glass primitives */
+  .glass-shell,
+  .glass-surface,
+  .glass-modal-surface,
+  .glass-tooltip-surface,
+  .glass-panel,
+  .glass-light {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
     background: var(--color-glass);
     border: 1px solid var(--color-glass-border);
+    box-shadow:
+      var(--shadow-panel),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  }
+
+  .glass-shell::before,
+  .glass-surface::before,
+  .glass-modal-surface::before,
+  .glass-tooltip-surface::before,
+  .glass-panel::before,
+  .glass-light::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      linear-gradient(
+          90deg,
+          transparent,
+          color-mix(in srgb, var(--color-foreground) 16%, transparent),
+          transparent
+        )
+        top center/80% 1px no-repeat,
+      linear-gradient(
+          transparent 0%,
+          color-mix(in srgb, var(--color-foreground) 16%, transparent) 14%,
+          color-mix(in srgb, var(--color-foreground) 8%, transparent) 60%,
+          transparent 100%
+        )
+        left center/1px 86% no-repeat;
+  }
+
+  .glass-shell {
+    border-radius: 20px;
+  }
+
+  .glass-modal-surface {
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--color-glass) 75%, transparent);
+  }
+
+  .glass-tooltip-surface {
+    border-radius: 14px;
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  /* Compatibility aliases */
+  .glass-panel {
     border-radius: 1rem;
-    overflow: hidden;
-    box-shadow: var(--shadow-panel);
-    backdrop-filter: blur(12px);
+  }
+
+  .text-shadow-soft {
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.75),
+      0 0 8px rgba(0, 0, 0, 0.45);
   }
 
   /* Buttons */
@@ -188,6 +311,26 @@
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .icon-toggle-btn {
+    height: 40px;
+    width: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--color-glass-border);
+    background: var(--color-glass);
+    color: var(--color-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(12px);
+  }
+
+  .icon-toggle-btn:hover {
+    color: var(--color-foreground);
+    border-color: var(--color-glass-border-hover);
+    background: var(--color-glass-hover);
   }
 
   /* Scrollbars */
@@ -265,13 +408,18 @@
 
   .modal {
     background: var(--color-surface-modal);
-    border: 1px solid var(--color-glass-active);
+    border: 1px solid var(--color-glass-border);
     border-radius: 1rem;
     padding: 24px;
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
+    box-shadow:
+      var(--shadow-panel),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
 
   /* Messages */
@@ -305,7 +453,11 @@
 
 .bg-art {
   white-space: pre;
-  color: rgba(255, 255, 255, 0.05);
+  color: color-mix(
+    in srgb,
+    var(--color-foreground) calc(var(--ascii-opacity) * 100%),
+    transparent
+  );
   z-index: 0;
   pointer-events: none;
   user-select: none;

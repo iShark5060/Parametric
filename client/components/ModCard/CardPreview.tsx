@@ -85,7 +85,7 @@ export function CardPreview({
         height: h * s,
         transition: collapsed ? 'none' : 'height 0.2s ease-out',
         outline: showOutlines ? '1px dashed rgba(255,255,255,0.2)' : 'none',
-        textShadow: '0 1px 3px rgba(0,0,0,1), 0 2px 8px rgba(0,0,0,0.6)',
+        textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.5)',
       }}
     >
       {/* Inner wrapper — shifts all content vertically via cardOffsetY */}
@@ -162,8 +162,8 @@ export function CardPreview({
               top: L.damageBadgeOffsetY * s,
               minWidth: L.damageBadgeWidth * s,
               height: L.damageBadgeHeight * s,
-              background: 'rgba(8,8,8,0.88)',
-              border: `${1.5 * s}px solid ${DAMAGE_COLORS[damageType] ?? '#fff'}`,
+              background: 'var(--color-surface-thead)',
+              border: `${1.5 * s}px solid ${DAMAGE_COLORS[damageType] ?? 'var(--color-dmg-true)'}`,
             }}
           />
         )}
@@ -299,7 +299,7 @@ export function CardPreview({
               minWidth: L.damageBadgeWidth * s,
               height: L.damageBadgeHeight * s,
               fontSize: L.damageBadgeFontSize * s,
-              color: DAMAGE_COLORS[damageType] ?? '#fff',
+              color: DAMAGE_COLORS[damageType] ?? 'var(--color-dmg-true)',
               lineHeight: 1,
               padding: `0 ${4 * s}px`,
               textShadow: '0 1px 2px rgba(0,0,0,0.6)',
@@ -321,10 +321,10 @@ export function CardPreview({
               lineHeight: 1,
               color:
                 polarityMatch === 'match'
-                  ? '#4ade80'
+                  ? 'var(--color-success)'
                   : polarityMatch === 'mismatch'
-                    ? '#f87171'
-                    : '#fff',
+                    ? 'var(--color-danger)'
+                    : 'var(--color-dmg-true)',
               textShadow: '0 1px 2px rgba(0,0,0,0.8)',
             }}
           >
@@ -358,7 +358,7 @@ export function CardPreview({
         {/* Lower tab type label text */}
         {!collapsed && modType && (
           <div
-            className="absolute left-1/2 flex items-center justify-center font-semibold uppercase tracking-wider text-white"
+            className="absolute left-1/2 flex items-center justify-center font-semibold uppercase tracking-wider text-foreground"
             style={{
               zIndex: 4,
               transform: 'translateX(-50%)',
@@ -378,7 +378,7 @@ export function CardPreview({
         {collapsed ? (
           <>
             <div
-              className="absolute left-1/2 -translate-x-1/2 text-center text-white"
+              className="absolute left-1/2 -translate-x-1/2 text-center text-foreground"
               style={{
                 zIndex: 4,
                 top: L.collapsedNameOffsetY * s,
@@ -411,7 +411,7 @@ export function CardPreview({
                         borderRadius: 1.5 * s,
                         border: `${1 * s}px solid rgba(200,170,100,${active ? '0.9' : '0.35'})`,
                         backgroundColor: active
-                          ? 'rgba(200,170,100,0.7)'
+                          ? 'color-mix(in srgb, var(--color-warning) 70%, transparent)'
                           : 'transparent',
                       }}
                     />
@@ -431,7 +431,7 @@ export function CardPreview({
             }}
           >
             <div
-              className="text-center text-white"
+              className="text-center text-foreground"
               style={{
                 fontSize: L.nameFontSize * s,
                 fontWeight: 400,
@@ -443,11 +443,12 @@ export function CardPreview({
             </div>
             {modDescription && (
               <div
-                className="text-center text-white/80"
+                className="text-center"
                 style={{
                   fontSize: L.descFontSize * s,
                   fontWeight: 400,
                   lineHeight: 1.4,
+                  color: 'color-mix(in srgb, var(--color-foreground) 80%, transparent)',
                   textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                 }}
               >
@@ -475,7 +476,7 @@ export function CardPreview({
                           borderRadius: 1 * s,
                           border: `${1 * s}px solid rgba(200,170,100,${active ? '0.9' : '0.35'})`,
                           backgroundColor: active
-                            ? 'rgba(200,170,100,0.7)'
+                            ? 'color-mix(in srgb, var(--color-warning) 70%, transparent)'
                             : 'transparent',
                           transition: 'all 0.2s',
                         }}
@@ -489,7 +490,8 @@ export function CardPreview({
                     fontSize: L.descFontSize * s * 0.9,
                     fontWeight: 400,
                     lineHeight: 1.3,
-                    color: 'rgba(200,170,100,0.8)',
+                    color:
+                      'color-mix(in srgb, var(--color-warning) 80%, transparent)',
                     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
@@ -527,8 +529,12 @@ export function CardPreview({
                     height: starSize * s,
                     fontSize: starSize * s,
                     lineHeight: 1,
-                    color: active ? '#a6e6ff' : 'rgba(255,255,255,0.2)',
-                    filter: active ? 'drop-shadow(0 0 0.1rem #a6e6ff)' : 'none',
+                    color: active
+                      ? 'var(--color-primary-100)'
+                      : 'color-mix(in srgb, var(--color-foreground) 20%, transparent)',
+                    filter: active
+                      ? 'drop-shadow(0 0 0.1rem var(--color-primary-100))'
+                      : 'none',
                   }}
                 >
                   ★
@@ -544,8 +550,9 @@ export function CardPreview({
                   top: '62.5%',
                   transform: 'translateY(-50%)',
                   height: 1,
-                  background: '#a6e6ff',
-                  filter: 'drop-shadow(0 0 0.2rem #a6e6ff)',
+                  background: 'var(--color-primary-100)',
+                  filter:
+                    'drop-shadow(0 0 0.2rem color-mix(in srgb, var(--color-primary-100) 90%, transparent))',
                   opacity: 0.8,
                   pointerEvents: 'none',
                 }}

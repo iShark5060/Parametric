@@ -444,7 +444,7 @@ function SlotCell({
                       onClick={() =>
                         onRankChange(Math.max(0, (slot.rank ?? 0) - 1))
                       }
-                      className="absolute left-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border bg-white/50 text-[9px] font-bold text-black backdrop-blur-xl transition-colors hover:text-foreground"
+                      className="absolute left-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
                       title="Decrease rank"
                     >
                       −
@@ -460,7 +460,7 @@ function SlotCell({
                           ),
                         )
                       }
-                      className="absolute right-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border bg-white/50 text-[9px] font-bold text-black backdrop-blur-xl transition-colors hover:text-foreground"
+                      className="absolute right-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
                       title="Increase rank"
                     >
                       +
@@ -475,7 +475,7 @@ function SlotCell({
                               Math.max(1, (slot.setRank ?? 1) - 1),
                             )
                           }
-                          className="absolute left-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border bg-white/50 text-[9px] font-bold text-black backdrop-blur-xl transition-colors hover:text-foreground"
+                          className="absolute left-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
                           title="Decrease set rank"
                         >
                           −
@@ -489,7 +489,7 @@ function SlotCell({
                               ),
                             )
                           }
-                          className="absolute right-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border bg-white/50 text-[9px] font-bold text-black backdrop-blur-xl transition-colors hover:text-foreground"
+                          className="absolute right-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
                           title="Increase set rank"
                         >
                           +
@@ -498,7 +498,7 @@ function SlotCell({
                     )}
                   <button
                     onClick={onRemove}
-                    className="absolute right-[12px] flex h-[15px] w-[15px] items-center justify-center rounded-full border bg-white/50 text-[7px] font-bold text-black backdrop-blur-xl transition-colors hover:text-danger"
+                    className="absolute right-[12px] flex h-[15px] w-[15px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[7px] font-bold text-foreground backdrop-blur-md transition-colors hover:text-danger"
                     title="Remove"
                   >
                     ✕

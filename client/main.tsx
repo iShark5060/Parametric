@@ -4,14 +4,17 @@ import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './App';
 import { CompareProvider } from './context/CompareContext';
+import { ThemeProvider } from './context/ThemeContext';
 import './styles/input.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <CompareProvider>
-        <App />
-      </CompareProvider>
+      <ThemeProvider>
+        <CompareProvider>
+          <App />
+        </CompareProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,
 );

@@ -39,7 +39,9 @@ export function ArcaneCardPreview({
       style={{
         width: L.cardWidth * s,
         height: h * s,
-        outline: showOutlines ? '1px dashed rgba(255,255,255,0.2)' : 'none',
+        outline: showOutlines
+          ? '1px dashed color-mix(in srgb, var(--color-foreground) 20%, transparent)'
+          : 'none',
         textShadow: '0 1px 3px rgba(0,0,0,1), 0 2px 8px rgba(0,0,0,0.6)',
       }}
     >
@@ -92,7 +94,7 @@ export function ArcaneCardPreview({
 
         {/* Name text */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 text-center text-white"
+          className="absolute left-1/2 -translate-x-1/2 text-center text-foreground"
           style={{
             zIndex: 2,
             top: (collapsed ? L.collapsedNameOffsetY : L.nameOffsetY) * s,
@@ -126,8 +128,12 @@ export function ArcaneCardPreview({
                 style={{
                   fontSize: dSize * s,
                   lineHeight: 1,
-                  color: filled ? '#b8d4e3' : 'rgba(255,255,255,0.2)',
-                  textShadow: filled ? '0 0 4px rgba(150,200,255,0.6)' : 'none',
+                  color: filled
+                    ? 'var(--color-primary-100)'
+                    : 'color-mix(in srgb, var(--color-foreground) 20%, transparent)',
+                  textShadow: filled
+                    ? '0 0 4px color-mix(in srgb, var(--color-primary-100) 60%, transparent)'
+                    : 'none',
                 }}
               >
                 {filled ? '\u25C6' : '\u25C7'}

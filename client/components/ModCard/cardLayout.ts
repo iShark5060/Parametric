@@ -16,45 +16,45 @@ export type Rarity = (typeof RARITIES)[number];
 
 export const DAMAGE_COLORS: Record<string, string> = {
   none: 'transparent',
-  base: '#ffffff',
-  impact: '#8888cc',
-  puncture: '#aaaaaa',
-  slash: '#cccc44',
-  heat: '#ff6600',
-  cold: '#6699ff',
-  electricity: '#99ccff',
-  toxin: '#44cc44',
-  blast: '#ffaa00',
-  radiation: '#ccaa44',
-  gas: '#88cc66',
-  magnetic: '#6666cc',
-  viral: '#66ccaa',
-  corrosive: '#aacc44',
-  void: '#6688cc',
+  base: 'var(--color-dmg-true)',
+  impact: 'var(--color-dmg-impact)',
+  puncture: 'var(--color-dmg-puncture)',
+  slash: 'var(--color-dmg-slash)',
+  heat: 'var(--color-dmg-heat)',
+  cold: 'var(--color-dmg-cold)',
+  electricity: 'var(--color-dmg-electricity)',
+  toxin: 'var(--color-dmg-toxin)',
+  blast: 'var(--color-dmg-blast)',
+  radiation: 'var(--color-dmg-radiation)',
+  gas: 'var(--color-dmg-gas)',
+  magnetic: 'var(--color-dmg-magnetic)',
+  viral: 'var(--color-dmg-viral)',
+  corrosive: 'var(--color-dmg-corrosive)',
+  void: 'var(--color-dmg-void)',
 };
 
 export function getRarityBorderColor(rarity: Rarity): string {
   switch (rarity) {
     case 'Common':
-      return '#90784e';
+      return 'var(--color-rarity-common)';
     case 'Uncommon':
-      return '#8a9eaa';
+      return 'var(--color-rarity-uncommon)';
     case 'Rare':
-      return '#b4922a';
+      return 'var(--color-rarity-rare)';
     case 'Legendary':
-      return '#c0c0c0';
+      return 'var(--color-rarity-legendary)';
     case 'Amalgam':
-      return '#7a4a5a';
+      return 'var(--color-rarity-peculiar)';
     case 'Galvanized':
-      return '#c0c0c0';
+      return 'var(--color-rarity-legendary)';
     case 'Archon':
-      return '#c47040';
+      return 'var(--color-warning)';
     case 'Riven':
-      return '#9880c8';
+      return 'var(--color-riven)';
     case 'Empty':
-      return '#3a3a3a';
+      return 'var(--color-unavailable)';
     default:
-      return '#666';
+      return 'var(--color-muted)';
   }
 }
 

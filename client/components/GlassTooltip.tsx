@@ -47,7 +47,7 @@ export function GlassTooltip({
             }}
           >
             <div
-              className={`glass-tooltip mb-1 ${width} rounded-lg border border-glass-border bg-black/40 p-2 shadow-xl backdrop-blur-xl`}
+              className={`glass-tooltip-surface mb-1 ${width} rounded-lg p-2`}
             >
               {content}
             </div>

@@ -195,7 +195,7 @@ export function ModCard({
           {onRemove && (
             <button
               onClick={onRemove}
-              className="absolute right-0.5 top-0.5 z-50 flex h-4 w-4 items-center justify-center rounded-full bg-glass-active text-[10px] font-bold text-danger shadow-lg transition-opacity hover:bg-glass-active/80"
+              className="absolute right-0.5 top-0.5 z-50 flex h-4 w-4 items-center justify-center rounded-full border border-glass-border bg-glass-active text-[10px] font-bold text-danger shadow-lg transition-opacity hover:bg-glass-hover"
             >
               X
             </button>
@@ -232,7 +232,7 @@ function RankStars({
 
   return (
     <div
-      className="absolute bottom-1 left-1/2 z-50 flex -translate-x-1/2 items-center gap-0.5 rounded bg-black/80 px-1.5 py-1"
+      className="absolute bottom-1 left-1/2 z-50 flex -translate-x-1/2 items-center gap-0.5 rounded border border-glass-border bg-glass-active px-1.5 py-1 backdrop-blur-md"
       onMouseLeave={() => setHoverIndex(null)}
     >
       {/* Rank 0 button */}
@@ -336,7 +336,7 @@ function SetRankDots({
 
   return (
     <div
-      className="absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-0.5 rounded bg-black/80 px-1.5 py-1"
+      className="absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-0.5 rounded border border-glass-border bg-glass-active px-1.5 py-1 backdrop-blur-md"
       style={{ bottom: hasRankStars ? 24 : 4 }}
       onMouseLeave={() => setHoverIndex(null)}
     >

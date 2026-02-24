@@ -5,12 +5,14 @@ import { EquipmentGridModal } from './EquipmentGridModal';
 import { SearchBar } from './SearchBar';
 import bgArt from '../../assets/background.txt?raw';
 import { useCompare } from '../../context/CompareContext';
+import { useTheme } from '../../context/ThemeContext';
 import { CompareBar } from '../Compare/CompareBar';
 
 export function Layout() {
   const [showAddBuild, setShowAddBuild] = useState(false);
   const navigate = useNavigate();
   const { snapshots } = useCompare();
+  const { mode, toggleMode } = useTheme();
   const compareBarVisible = snapshots.length > 0;
 
   const handleEquipmentSelect = useCallback(
@@ -34,7 +36,7 @@ export function Layout() {
             Parametric
           </h1>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               className="btn btn-accent text-sm"
               onClick={() => setShowAddBuild(true)}
@@ -71,6 +73,16 @@ export function Layout() {
                 Admin
               </NavLink>
             </nav>
+
+            <button
+              type="button"
+              className="icon-toggle-btn"
+              onClick={toggleMode}
+              aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              <span aria-hidden="true">{mode === 'dark' ? '☀' : '☾'}</span>
+            </button>
           </div>
         </div>
       </header>

@@ -173,21 +173,21 @@ function findCombination(a: PrimaryElement, b: PrimaryElement): string | null {
 
 export function getElementColor(element: string): string {
   const colors: Record<string, string> = {
-    Impact: '#8899aa',
-    Puncture: '#aabbcc',
-    Slash: '#cc8866',
-    Heat: '#ff6633',
-    Cold: '#66ccff',
-    Electricity: '#cccc00',
-    Toxin: '#33cc33',
-    Blast: '#ff9933',
-    Radiation: '#cccc66',
-    Gas: '#66cc99',
-    Magnetic: '#6699cc',
-    Viral: '#66cccc',
-    Corrosive: '#cccc33',
-    Void: '#cc99ff',
-    True: '#ffffff',
+    Impact: 'var(--color-dmg-impact)',
+    Puncture: 'var(--color-dmg-puncture)',
+    Slash: 'var(--color-dmg-slash)',
+    Heat: 'var(--color-dmg-heat)',
+    Cold: 'var(--color-dmg-cold)',
+    Electricity: 'var(--color-dmg-electricity)',
+    Toxin: 'var(--color-dmg-toxin)',
+    Blast: 'var(--color-dmg-blast)',
+    Radiation: 'var(--color-dmg-radiation)',
+    Gas: 'var(--color-dmg-gas)',
+    Magnetic: 'var(--color-dmg-magnetic)',
+    Viral: 'var(--color-dmg-viral)',
+    Corrosive: 'var(--color-dmg-corrosive)',
+    Void: 'var(--color-dmg-void)',
+    True: 'var(--color-dmg-true)',
   };
-  return colors[element] || '#999999';
+  return colors[element] || 'var(--color-muted)';
 }

@@ -84,7 +84,7 @@ export function EquipmentGridModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="glass-panel max-w-4xl overflow-y-auto bg-black/40 shadow-2xl backdrop-blur-xl"
+        className="glass-modal-surface max-w-4xl overflow-y-auto p-6 shadow-2xl"
         style={{ width: '90%', maxHeight: '85vh' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -145,19 +145,19 @@ export function EquipmentGridModal({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {filtered.map((item) => (
                 <button
                   key={item.unique_name}
                   onClick={() => onSelect(activeTab, item.unique_name)}
-                  className="flex flex-col items-center gap-1 rounded-lg border border-glass-border p-2 text-center transition-all hover:border-glass-border-hover hover:bg-glass-hover"
+                  className="group relative overflow-hidden rounded-lg border border-glass-border p-0 text-center transition-all hover:border-glass-border-hover hover:bg-glass-hover"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded bg-glass">
+                  <div className="relative flex h-20 w-full items-center justify-center overflow-hidden bg-glass">
                     {item.image_path ? (
                       <img
                         src={`/images${item.image_path}`}
                         alt=""
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain p-1 transition-transform duration-200 group-hover:scale-105"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -165,10 +165,10 @@ export function EquipmentGridModal({
                     ) : (
                       <span className="text-[10px] text-muted/50">?</span>
                     )}
+                    <span className="text-shadow-soft absolute inset-x-0 bottom-0 truncate bg-black/25 px-2 py-1 text-[11px] text-white">
+                      {item.name}
+                    </span>
                   </div>
-                  <span className="w-full truncate text-[11px] text-muted">
-                    {item.name}
-                  </span>
                 </button>
               ))}
             </div>
