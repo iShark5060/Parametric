@@ -381,10 +381,7 @@ function ArchonShardAdmin() {
 
       <div className="space-y-4">
         {shards.map((shard) => (
-          <div
-            key={shard.id}
-            className="glass-surface rounded-lg p-3"
-          >
+          <div key={shard.id} className="glass-surface rounded-lg p-3">
             <div className="mb-2 flex items-center gap-2">
               <img
                 src={shard.icon_path}

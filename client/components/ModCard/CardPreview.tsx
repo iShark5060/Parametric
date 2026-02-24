@@ -448,7 +448,8 @@ export function CardPreview({
                   fontSize: L.descFontSize * s,
                   fontWeight: 400,
                   lineHeight: 1.4,
-                  color: 'color-mix(in srgb, var(--color-foreground) 80%, transparent)',
+                  color:
+                    'color-mix(in srgb, var(--color-foreground) 80%, transparent)',
                   textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                 }}
               >
