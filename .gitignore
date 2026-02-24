@@ -1,8 +1,5 @@
 node_modules/
 dist/
-data/exports/
-data/images/
-data/*.db
-data/auth-lockout.json
+data/
 .env
 _resources/
