@@ -14,6 +14,7 @@ import { ElementOutput } from './ElementOutput';
 import { FilterPanel } from './FilterPanel';
 import { HelminthPickerPanel } from './HelminthPickerPanel';
 import { ModSlotGrid } from './ModSlotGrid';
+import { RivenBuilder } from './RivenBuilder';
 import { ShardPickerPanel } from './ShardPickerPanel';
 import { StatsPanel } from './StatsPanel';
 import { useCompare } from '../../context/CompareContext';
@@ -32,6 +33,8 @@ import {
   type BuildConfig,
   type Ability,
   type PolarityKey,
+  type RivenConfig,
+  type RivenWeaponType,
 } from '../../types/warframe';
 import { getMaxRank } from '../../utils/arcaneUtils';
 import { calculateBuildDamage } from '../../utils/damage';
@@ -43,6 +46,13 @@ import {
   type SlotPolarity,
 } from '../../utils/formaCounter';
 import { isModLockedOut } from '../../utils/modFiltering';
+import {
+  createRivenMod,
+  getRivenStatsForType,
+  getRivenWeaponType,
+  isRivenMod,
+  RIVEN_PLACEHOLDER_UNIQUE,
+} from '../../utils/riven';
 
 type RightPanelMode = 'mods' | 'helminth' | 'arcanes' | 'shards';
 
@@ -135,6 +145,7 @@ export function ModBuilder() {
   );
   const [activeArcaneSlot, setActiveArcaneSlot] = useState<number | null>(null);
   const [activeShardSlot, setActiveShardSlot] = useState<number | null>(null);
+  const [editingRivenSlot, setEditingRivenSlot] = useState<number | null>(null);
 
   const routeKey = `${buildId ?? ''}|${routeEqType ?? ''}|${equipmentId ?? ''}`;
   const prevRouteKey = useRef(routeKey);
@@ -158,6 +169,7 @@ export function ModBuilder() {
     setActiveAbilityIndex(null);
     setActiveArcaneSlot(null);
     setActiveShardSlot(null);
+    setEditingRivenSlot(null);
     if (routeEqType) setEquipmentType(routeEqType as EquipmentType);
   }, [routeKey, buildId, routeEqType]);
 
@@ -228,6 +240,10 @@ export function ModBuilder() {
   const equippedMods = useMemo(
     () => slots.filter((s) => s.mod).map((s) => s.mod!),
     [slots],
+  );
+  const rivenWeaponType = useMemo<RivenWeaponType | null>(
+    () => getRivenWeaponType(equipmentType),
+    [equipmentType],
   );
 
   useEffect(() => {
@@ -329,34 +345,60 @@ export function ModBuilder() {
 
   const [searchResetKey, setSearchResetKey] = useState(0);
 
+  const getDefaultRivenConfig = useCallback((): RivenConfig => {
+    return {
+      polarity: 'AP_ATTACK',
+      positive: [
+        { stat: '', value: 0, isNegative: false },
+        { stat: '', value: 0, isNegative: false },
+        { stat: '', value: 0, isNegative: false },
+      ],
+      negative: undefined,
+    };
+  }, []);
+
   const handleModDrop = useCallback((slotIndex: number, mod: Mod) => {
+    const isRivenPlaceholder = mod.unique_name === RIVEN_PLACEHOLDER_UNIQUE;
+    const openedRiven = { value: false };
     setSlots((prev) => {
       const targetSlot = prev.find((s) => s.index === slotIndex);
       if (!targetSlot) return prev;
 
-      if (!canPlaceModInSlot(mod, targetSlot.type)) return prev;
+      if (isRivenPlaceholder && targetSlot.type !== 'general') return prev;
+      if (!isRivenPlaceholder && !canPlaceModInSlot(mod, targetSlot.type)) return prev;
 
       const currentMods = prev
         .filter((s) => s.mod && s.index !== slotIndex)
         .map((s) => s.mod!);
 
-      if (isModLockedOut(mod, currentMods)) {
+      if (!isRivenPlaceholder && isModLockedOut(mod, currentMods)) {
         return prev;
       }
+
+      const rivenConfig = getDefaultRivenConfig();
+      const resolvedMod = isRivenPlaceholder
+        ? createRivenMod(rivenConfig, mod.image_path)
+        : mod;
+      if (isRivenPlaceholder) openedRiven.value = true;
 
       return prev.map((s) =>
         s.index === slotIndex
           ? {
               ...s,
-              mod,
-              rank: mod.fusion_limit ?? 0,
-              setRank: mod.set_stats ? 1 : undefined,
+              mod: resolvedMod,
+              rank: resolvedMod.fusion_limit ?? 0,
+              setRank: resolvedMod.set_stats ? 1 : undefined,
+              riven_config: isRivenPlaceholder ? rivenConfig : undefined,
+              riven_art_path: isRivenPlaceholder ? mod.image_path : undefined,
             }
           : s,
       );
     });
+    if (openedRiven.value) {
+      setEditingRivenSlot(slotIndex);
+    }
     setSearchResetKey((k) => k + 1);
-  }, []);
+  }, [getDefaultRivenConfig]);
 
   const handleSetRankChange = useCallback(
     (slotIndex: number, setRank: number) => {
@@ -379,9 +421,13 @@ export function ModBuilder() {
         const sourceMod = source.mod;
         const sourceRank = source.rank;
         const sourceSetRank = source.setRank;
+        const sourceRivenConfig = source.riven_config;
+        const sourceRivenArt = source.riven_art_path;
         const targetMod = target.mod;
         const targetRank = target.rank;
         const targetSetRank = target.setRank;
+        const targetRivenConfig = target.riven_config;
+        const targetRivenArt = target.riven_art_path;
 
         if (!canPlaceModInSlot(sourceMod, target.type)) return prev;
 
@@ -412,6 +458,8 @@ export function ModBuilder() {
               mod: sourceMod,
               rank: sourceRank,
               setRank: sourceSetRank,
+              riven_config: sourceRivenConfig,
+              riven_art_path: sourceRivenArt,
             };
           if (s.index === sourceIndex)
             return {
@@ -419,6 +467,8 @@ export function ModBuilder() {
               mod: targetMod,
               rank: targetRank,
               setRank: targetSetRank,
+              riven_config: targetRivenConfig,
+              riven_art_path: targetRivenArt,
             };
           return s;
         });
@@ -431,7 +481,14 @@ export function ModBuilder() {
     setSlots((prev) =>
       prev.map((s) =>
         s.index === slotIndex
-          ? { ...s, mod: undefined, rank: undefined, setRank: undefined }
+          ? {
+              ...s,
+              mod: undefined,
+              rank: undefined,
+              setRank: undefined,
+              riven_config: undefined,
+              riven_art_path: undefined,
+            }
           : s,
       ),
     );
@@ -560,6 +617,25 @@ export function ModBuilder() {
       return next;
     });
   }, []);
+
+  const handleRivenSave = useCallback(
+    (config: RivenConfig) => {
+      if (editingRivenSlot === null) return;
+      setSlots((prev) =>
+        prev.map((slot) => {
+          if (slot.index !== editingRivenSlot) return slot;
+          if (!slot.mod || !isRivenMod(slot.mod)) return slot;
+          return {
+            ...slot,
+            riven_config: config,
+            mod: createRivenMod(config, slot.riven_art_path ?? slot.mod.image_path),
+          };
+        }),
+      );
+      setEditingRivenSlot(null);
+    },
+    [editingRivenSlot],
+  );
 
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveModalName, setSaveModalName] = useState('');
@@ -710,15 +786,25 @@ export function ModBuilder() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={orokinReactor}
-                onChange={(e) => setOrokinReactor(e.target.checked)}
-                className="accent-accent"
-              />
+            <button
+              type="button"
+              onClick={() => setOrokinReactor((v) => !v)}
+              aria-pressed={orokinReactor}
+              className="inline-flex items-center gap-2 rounded-lg border border-glass-border px-2.5 py-1.5 text-sm text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
+              title="Toggle Orokin Reactor"
+            >
+              <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold transition-colors ${
+                  orokinReactor
+                    ? 'bg-success/20 text-success hover:bg-success/30'
+                    : 'bg-muted/10 text-muted/40 hover:bg-muted/20'
+                }`}
+                aria-hidden="true"
+              >
+                {orokinReactor ? '\u2713' : '\u2715'}
+              </span>
               Orokin Reactor
-            </label>
+            </button>
             {equipmentType !== 'warframe' && (
               <button
                 className="btn border border-glass-border text-sm text-muted hover:border-accent hover:text-accent disabled:opacity-40"
@@ -754,6 +840,11 @@ export function ModBuilder() {
             onRemove={handleModRemove}
             onRankChange={handleRankChange}
             onSetRankChange={handleSetRankChange}
+            onEditRiven={(slotIndex) => {
+              const slot = slots.find((s) => s.index === slotIndex);
+              if (!slot?.mod || !isRivenMod(slot.mod)) return;
+              setEditingRivenSlot(slotIndex);
+            }}
             activeSlotIndex={activeSlotIndex}
             onSlotClick={(slotIndex, slotType) => {
               if (activeSlotIndex === slotIndex) {
@@ -833,12 +924,13 @@ export function ModBuilder() {
             }}
             onModSelect={(mod) => {
               const modType = (mod.type || '').toUpperCase();
+              const isRivenPlaceholder =
+                mod.unique_name === RIVEN_PLACEHOLDER_UNIQUE;
               let emptySlot;
 
               if (activeSlotType) {
-                emptySlot = slots.find(
-                  (s) => !s.mod && s.type === activeSlotType,
-                );
+                const targetType = isRivenPlaceholder ? 'general' : activeSlotType;
+                emptySlot = slots.find((s) => !s.mod && s.type === targetType);
               } else if (modType === 'AURA') {
                 emptySlot = slots.find((s) => !s.mod && s.type === 'aura');
               } else if (modType === 'STANCE') {
@@ -965,6 +1057,17 @@ export function ModBuilder() {
         >
           Added to comparison ({compareSnapshots.length}/3)
         </div>
+      )}
+      {editingRivenSlot !== null && rivenWeaponType && (
+        <RivenBuilder
+          availableStats={getRivenStatsForType(equipmentType)}
+          weaponType={rivenWeaponType}
+          config={
+            slots.find((s) => s.index === editingRivenSlot)?.riven_config
+          }
+          onSave={handleRivenSave}
+          onClose={() => setEditingRivenSlot(null)}
+        />
       )}
     </div>
   );

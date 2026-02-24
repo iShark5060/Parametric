@@ -50,7 +50,10 @@ export function calculateWeaponDps(
   weapon: Weapon,
   slots: ModSlot[],
 ): WeaponCalcResult {
-  const effects = aggregateAllMods(slots);
+  const disposition = weapon.riven_disposition ?? weapon.omega_attenuation ?? 1;
+  const effects = aggregateAllMods(slots, {
+    rivenDispositionMultiplier: disposition,
+  });
   const isMelee = weapon.range != null;
 
   const base = {

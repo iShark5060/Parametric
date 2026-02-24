@@ -57,15 +57,28 @@ export interface WikiShardResult {
   buffs: WikiShardBuff[];
 }
 
+export interface WikiRivenDisposition {
+  weapon_name: string;
+  disposition: number;
+}
+
 export interface WikiScrapeResult {
   abilities: WikiAbilityResult[];
   passives: WikiPassiveResult[];
   augments: WikiAugmentMapping[];
   shards: WikiShardResult;
+  dispositions: WikiRivenDisposition[];
 }
 
 export interface WikiScrapeProgress {
-  phase: 'abilities' | 'passives' | 'augments' | 'shards' | 'merging' | 'done';
+  phase:
+    | 'abilities'
+    | 'passives'
+    | 'augments'
+    | 'shards'
+    | 'riven_disposition'
+    | 'merging'
+    | 'done';
   current: number;
   total: number;
   currentItem: string;
@@ -618,12 +631,73 @@ export async function scrapeArchonShards(
   return { types, buffs };
 }
 
+export async function scrapeRivenDispositions(
+  onProgress?: (msg: string) => void,
+): Promise<WikiRivenDisposition[]> {
+  onProgress?.('Fetching Riven Mods wiki page...');
+  const res = await fetch(`${WIKI_BASE}/w/Riven_Mods`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Riven Mods page: ${res.status}`);
+  }
+
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  const dispositions: WikiRivenDisposition[] = [];
+
+  $('table.wikitable').each((_, table) => {
+    const headers = $(table)
+      .find('tr')
+      .first()
+      .find('th')
+      .toArray()
+      .map((th) => normalizeText($(th).text()).toLowerCase());
+    if (!headers.some((h) => h.includes('weapon'))) return;
+    if (
+      !headers.some(
+        (h) =>
+          h.includes('disposition') ||
+          h.includes('attenuation') ||
+          h.includes('multiplier'),
+      )
+    ) {
+      return;
+    }
+
+    $(table)
+      .find('tr')
+      .slice(1)
+      .each((__, row) => {
+        const cells = $(row).find('td');
+        if (cells.length < 2) return;
+        const weaponName = normalizeText(cells.eq(0).text()).replace(/\s+/g, ' ');
+        const rowText = normalizeText($(row).text());
+        const multMatch = rowText.match(/(\d+(?:\.\d+)?)\s*x/i);
+        if (!weaponName || !multMatch) return;
+        const disposition = parseFloat(multMatch[1]);
+        if (!Number.isFinite(disposition)) return;
+        dispositions.push({ weapon_name: weaponName, disposition });
+      });
+  });
+
+  const deduped = new Map<string, WikiRivenDisposition>();
+  for (const d of dispositions) {
+    if (!deduped.has(d.weapon_name.toLowerCase())) {
+      deduped.set(d.weapon_name.toLowerCase(), d);
+    }
+  }
+  const output = Array.from(deduped.values());
+  onProgress?.(`Found ${output.length} riven disposition rows`);
+  return output;
+}
+
 export interface WikiMergeResult {
   abilitiesUpdated: number;
   passivesUpdated: number;
   augmentsUpdated: number;
   shardTypes: number;
   shardBuffs: number;
+  rivenDispositionsUpdated: number;
+  rivenDispositionsFallbackFromOmega: number;
 }
 
 export function mergeWikiData(
@@ -637,6 +711,8 @@ export function mergeWikiData(
     augmentsUpdated: 0,
     shardTypes: 0,
     shardBuffs: 0,
+    rivenDispositionsUpdated: 0,
+    rivenDispositionsFallbackFromOmega: 0,
   };
 
   const updateAbility = db.prepare(
@@ -651,6 +727,12 @@ export function mergeWikiData(
   );
   const updateAugment = db.prepare(
     'UPDATE mods SET augment_for_ability = ? WHERE name = ? AND is_augment = 1',
+  );
+  const updateRivenDisposition = db.prepare(
+    'UPDATE weapons SET riven_disposition = ? WHERE lower(name) = lower(?)',
+  );
+  const fallbackRivenDisposition = db.prepare(
+    'UPDATE weapons SET riven_disposition = omega_attenuation WHERE riven_disposition IS NULL AND omega_attenuation IS NOT NULL',
   );
 
   const mergeAll = db.transaction(() => {
@@ -710,6 +792,13 @@ export function mergeWikiData(
         result.shardBuffs++;
       }
     }
+
+    for (const d of data.dispositions) {
+      const changes = updateRivenDisposition.run(d.disposition, d.weapon_name);
+      if (changes.changes > 0) result.rivenDispositionsUpdated += changes.changes;
+    }
+    const fallback = fallbackRivenDisposition.run();
+    result.rivenDispositionsFallbackFromOmega = fallback.changes;
   });
 
   mergeAll();
@@ -717,7 +806,9 @@ export function mergeWikiData(
     `Merged: ${result.abilitiesUpdated} abilities, ` +
       `${result.passivesUpdated} passives, ` +
       `${result.augmentsUpdated} augments, ` +
-      `${result.shardTypes} shard types, ${result.shardBuffs} shard buffs`,
+      `${result.shardTypes} shard types, ${result.shardBuffs} shard buffs, ` +
+      `${result.rivenDispositionsUpdated} dispositions, ` +
+      `${result.rivenDispositionsFallbackFromOmega} fallback dispositions`,
   );
   return result;
 }
@@ -745,6 +836,9 @@ export async function runWikiScrape(
   state.phase = 'shards';
   const shards = await scrapeArchonShards(log);
 
+  state.phase = 'riven_disposition';
+  const dispositions = await scrapeRivenDispositions(log);
+
   state.phase = 'abilities';
   const abilities = await scrapeAbilities((msg) => {
     const m = msg.match(/\[(\d+)\/(\d+)\]\s*(.*)/);
@@ -769,7 +863,10 @@ export async function runWikiScrape(
 
   state.phase = 'merging';
   log('Merging wiki data into database...');
-  const result = mergeWikiData({ abilities, passives, augments, shards }, log);
+  const result = mergeWikiData(
+    { abilities, passives, augments, shards, dispositions },
+    log,
+  );
 
   state.phase = 'done';
   log('Wiki scrape complete');

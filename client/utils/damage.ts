@@ -1,5 +1,6 @@
 import { calculateFinalDamage, type DamageEntry } from './elements';
 import { aggregateAllMods } from './modStatParser';
+import { isRivenMod } from './riven';
 import {
   DAMAGE_TYPES,
   PRIMARY_ELEMENTS,
@@ -85,10 +86,19 @@ export function calculateBuildDamage(
   innateSecondary: DamageEntry[];
 } {
   const baseDamage = parseDamageArray(weapon);
-  const elementMods = extractElementMods(slots);
+  const disposition = weapon.riven_disposition ?? weapon.omega_attenuation ?? 1;
+  const elementMods = extractElementMods(slots).map((entry) => {
+    const sourceSlot = slots.find((slot) => slot.index === entry.slotIndex);
+    if (sourceSlot?.mod && sourceSlot.riven_config && isRivenMod(sourceSlot.mod)) {
+      return { ...entry, value: entry.value * disposition };
+    }
+    return entry;
+  });
   const innateSecondary = getInnateSecondaryElements(baseDamage);
 
-  const effects = aggregateAllMods(slots);
+  const effects = aggregateAllMods(slots, {
+    rivenDispositionMultiplier: disposition,
+  });
 
   const damageMultipliers: Partial<Record<DamageType, number>> = {};
   for (const dt of DAMAGE_TYPES) {

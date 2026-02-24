@@ -1,3 +1,4 @@
+import { isRivenMod } from './riven';
 import type { Mod, ModSlot } from '../types/warframe';
 
 export interface StatEffects {
@@ -125,18 +126,39 @@ export function parseModEffects(mod: Mod, rank: number): StatEffects {
   return effects;
 }
 
-export function aggregateAllMods(slots: ModSlot[]): StatEffects {
+interface AggregateOptions {
+  rivenDispositionMultiplier?: number;
+}
+
+export function aggregateAllMods(
+  slots: ModSlot[],
+  options?: AggregateOptions,
+): StatEffects {
   const total = emptyEffects();
+  const rivenDispositionMultiplier = options?.rivenDispositionMultiplier ?? 1;
 
   for (const slot of slots) {
     if (!slot.mod) continue;
     const rank = slot.rank ?? slot.mod.fusion_limit ?? 0;
     const effects = parseModEffects(slot.mod, rank);
+    const scaledEffects =
+      slot.riven_config && isRivenMod(slot.mod)
+        ? scaleEffects(effects, rivenDispositionMultiplier)
+        : effects;
 
     for (const key of Object.keys(total) as (keyof StatEffects)[]) {
-      total[key] += effects[key];
+      total[key] += scaledEffects[key];
     }
   }
 
   return total;
+}
+
+function scaleEffects(effects: StatEffects, multiplier: number): StatEffects {
+  if (multiplier === 1) return effects;
+  const out = emptyEffects();
+  for (const key of Object.keys(out) as (keyof StatEffects)[]) {
+    out[key] = effects[key] * multiplier;
+  }
+  return out;
 }

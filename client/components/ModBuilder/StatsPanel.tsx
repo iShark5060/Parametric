@@ -352,6 +352,9 @@ function WeaponStats({ weapon, slots }: { weapon: Weapon; slots?: ModSlot[] }) {
   })();
 
   const isMelee = weapon.range != null;
+  const rivenDisposition = weapon.riven_disposition ?? weapon.omega_attenuation;
+  const dispositionPips =
+    rivenDisposition != null ? getDispositionPips(rivenDisposition) : null;
 
   const moddedStats: Array<{
     label: string;
@@ -459,7 +462,6 @@ function WeaponStats({ weapon, slots }: { weapon: Weapon; slots?: ModSlot[] }) {
     { label: 'Accuracy', value: weapon.accuracy?.toFixed(1) },
     { label: 'Noise', value: weapon.noise },
     { label: 'Trigger', value: weapon.trigger_type },
-    { label: 'Riven Dispo', value: weapon.omega_attenuation?.toFixed(3) },
   ];
 
   if (isMelee) {
@@ -507,6 +509,15 @@ function WeaponStats({ weapon, slots }: { weapon: Weapon; slots?: ModSlot[] }) {
       </div>
 
       <div className="space-y-1.5">
+        {rivenDisposition != null && dispositionPips != null && (
+          <div className="flex justify-between text-xs">
+            <span className="text-muted">Riven Dispo</span>
+            <span className="font-medium text-foreground">
+              {'●'.repeat(dispositionPips)}
+              {'○'.repeat(5 - dispositionPips)} {rivenDisposition.toFixed(3)}
+            </span>
+          </div>
+        )}
         {staticStats.map(
           (stat) =>
             stat.value != null && (
@@ -583,6 +594,14 @@ function WeaponStats({ weapon, slots }: { weapon: Weapon; slots?: ModSlot[] }) {
         )}
     </div>
   );
+}
+
+function getDispositionPips(value: number): number {
+  if (value <= 0.7) return 1;
+  if (value <= 0.9) return 2;
+  if (value <= 1.1) return 3;
+  if (value <= 1.3) return 4;
+  return 5;
 }
 
 function DpsInfoTip({ isMelee }: { isMelee: boolean }) {

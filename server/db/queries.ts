@@ -371,12 +371,12 @@ function processWeapons(data: Record<string, unknown[]>): number {
     (unique_name, name, description, product_category, slot, mastery_req,
      total_damage, damage_per_shot, critical_chance, critical_multiplier,
      proc_chance, fire_rate, accuracy, magazine_size, reload_time, multishot,
-     noise, trigger_type, omega_attenuation, max_level_cap, sentinel,
+     noise, trigger_type, omega_attenuation, riven_disposition, max_level_cap, sentinel,
      blocking_angle, combo_duration, follow_through, range,
      slam_attack, slam_radial_damage, slam_radius, slide_attack,
      heavy_attack_damage, heavy_slam_attack, heavy_slam_radial_damage,
      heavy_slam_radius, wind_up, codex_secret, exclude_from_codex)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(unique_name) DO UPDATE SET
       name = excluded.name,
       description = excluded.description,
@@ -396,6 +396,7 @@ function processWeapons(data: Record<string, unknown[]>): number {
       noise = excluded.noise,
       trigger_type = excluded.trigger_type,
       omega_attenuation = excluded.omega_attenuation,
+      riven_disposition = excluded.riven_disposition,
       max_level_cap = excluded.max_level_cap,
       sentinel = excluded.sentinel,
       blocking_angle = excluded.blocking_angle,
@@ -436,6 +437,7 @@ function processWeapons(data: Record<string, unknown[]>): number {
         item.multishot ?? null,
         item.noise ?? null,
         item.trigger ?? null,
+        item.omegaAttenuation ?? null,
         item.omegaAttenuation ?? null,
         item.maxLevelCap ?? null,
         item.sentinel ? 1 : 0,

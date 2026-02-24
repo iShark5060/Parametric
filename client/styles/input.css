@@ -350,6 +350,11 @@ html.theme-dark {
     color: var(--color-muted);
   }
 
+  .riven-select option {
+    color: #111;
+    background: #fff;
+  }
+
   .search-box {
     padding: 8px 32px 8px 14px;
     font-size: 14px;

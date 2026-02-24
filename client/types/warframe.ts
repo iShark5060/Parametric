@@ -39,6 +39,7 @@ export interface Weapon {
   noise?: string;
   trigger_type?: string;
   omega_attenuation?: number;
+  riven_disposition?: number;
   sentinel?: number;
   blocking_angle?: number;
   combo_duration?: number;
@@ -87,6 +88,20 @@ export interface Mod {
   set_stats?: string;
 }
 
+export type RivenWeaponType = 'primary' | 'secondary' | 'melee' | 'archgun';
+
+export interface RivenStat {
+  stat: string;
+  value: number;
+  isNegative: boolean;
+}
+
+export interface RivenConfig {
+  polarity?: 'AP_ATTACK' | 'AP_TACTIC' | 'AP_DEFENSE';
+  positive: RivenStat[];
+  negative?: RivenStat;
+}
+
 export interface ModLevelStat {
   mod_unique_name: string;
   rank: number;
@@ -131,6 +146,8 @@ export interface ModSlot {
   mod?: Mod;
   rank?: number;
   setRank?: number;
+  riven_config?: RivenConfig;
+  riven_art_path?: string;
 }
 
 export interface BuildConfig {

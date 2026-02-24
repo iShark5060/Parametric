@@ -7,10 +7,13 @@ import {
   useCallback,
 } from 'react';
 
-import { RivenBuilder, type RivenConfig } from './RivenBuilder';
 import { useApi } from '../../hooks/useApi';
 import type { Mod, ModRarity, EquipmentType } from '../../types/warframe';
 import { filterCompatibleMods, isModLockedOut } from '../../utils/modFiltering';
+import {
+  createRivenPlaceholderMod,
+  getRivenWeaponType,
+} from '../../utils/riven';
 import { ModCard, CardPreview, DEFAULT_LAYOUT } from '../ModCard';
 
 interface FilterPanelProps {
@@ -19,7 +22,6 @@ interface FilterPanelProps {
   equippedMods: Mod[];
   onModSelect: (mod: Mod) => void;
   onModRemove?: () => void;
-  onRivenAdd?: (config: RivenConfig) => void;
   targetSlotType?: 'general' | 'aura' | 'stance' | 'exilus' | 'posture';
   active?: boolean;
   searchResetKey?: number;
@@ -66,7 +68,6 @@ export function FilterPanel({
   equippedMods,
   onModSelect,
   onModRemove,
-  onRivenAdd,
   targetSlotType,
   active = true,
   searchResetKey = 0,
@@ -79,7 +80,6 @@ export function FilterPanel({
   const [rarity, setRarity] = useState<ModRarity | 'ALL'>('ALL');
   const [expandMods, setExpandMods] = useState(false);
   const [showLockedOut, setShowLockedOut] = useState(false);
-  const [showRivenBuilder, setShowRivenBuilder] = useState(false);
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [cardScale, setCardScale] = useState<number>(0);
@@ -169,30 +169,56 @@ export function FilterPanel({
   const displayMods = showLockedOut
     ? [...compatible, ...lockedOut]
     : compatible;
+  const rivenWeaponType = getRivenWeaponType(equipmentType);
+  const rivenArt = useMemo(() => {
+    const pool = allMods.filter((m) => !!m.image_path);
+    if (pool.length === 0) return undefined;
+    return pool[Math.floor(Math.random() * pool.length)]?.image_path;
+  }, [allMods]);
 
   return (
     <div className="glass-panel p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Mods</h2>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={showLockedOut}
-              onChange={(e) => setShowLockedOut(e.target.checked)}
-              className="accent-accent"
-            />
+          <button
+            type="button"
+            onClick={() => setShowLockedOut((v) => !v)}
+            aria-pressed={showLockedOut}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border px-2 py-1 text-xs text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
+            title="Toggle showing locked mods"
+          >
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold transition-colors ${
+                showLockedOut
+                  ? 'bg-success/20 text-success hover:bg-success/30'
+                  : 'bg-muted/10 text-muted/40 hover:bg-muted/20'
+              }`}
+              aria-hidden="true"
+            >
+              {showLockedOut ? '\u2713' : '\u2715'}
+            </span>
             Show locked
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={expandMods}
-              onChange={(e) => setExpandMods(e.target.checked)}
-              className="accent-accent"
-            />
+          </button>
+          <button
+            type="button"
+            onClick={() => setExpandMods((v) => !v)}
+            aria-pressed={expandMods}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-glass-border px-2 py-1 text-xs text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
+            title="Toggle expanded mod cards"
+          >
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold transition-colors ${
+                expandMods
+                  ? 'bg-success/20 text-success hover:bg-success/30'
+                  : 'bg-muted/10 text-muted/40 hover:bg-muted/20'
+              }`}
+              aria-hidden="true"
+            >
+              {expandMods ? '\u2713' : '\u2715'}
+            </span>
             Expand
-          </label>
+          </button>
         </div>
       </div>
 
@@ -240,15 +266,6 @@ export function FilterPanel({
         {(search || rarity !== 'ALL') && ' (filtered)'}
       </div>
 
-      {['primary', 'secondary', 'melee', 'archgun'].includes(equipmentType) && (
-        <button
-          onClick={() => setShowRivenBuilder(true)}
-          className="mb-2 w-full rounded-lg border border-riven/30 bg-riven/5 px-3 py-1.5 text-xs text-riven-light transition-all hover:bg-riven/10"
-        >
-          + Add Riven Mod
-        </button>
-      )}
-
       {targetSlotType && targetSlotType !== 'general' && (
         <div className="mb-2 rounded-md bg-accent-weak/20 px-2 py-1 text-xs text-accent">
           Showing {targetSlotType} mods
@@ -265,8 +282,55 @@ export function FilterPanel({
           </p>
         )}
         <div ref={gridRef} className="grid grid-cols-4">
-          {cardScale > 0 && !loading && displayMods.length > 0 && (
+          {cardScale > 0 && !loading && (displayMods.length > 0 || !!rivenWeaponType) && (
             <>
+              {rivenWeaponType && !search && (
+                <div
+                  onClick={() =>
+                    onModSelect(createRivenPlaceholderMod(rivenArt))
+                  }
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(
+                      'application/json',
+                      JSON.stringify(createRivenPlaceholderMod(rivenArt)),
+                    );
+                    e.dataTransfer.effectAllowed = 'move';
+                    const el = e.currentTarget;
+                    const clone = el.cloneNode(true) as HTMLElement;
+                    clone.style.position = 'fixed';
+                    clone.style.top = '-9999px';
+                    clone.style.left = '-9999px';
+                    clone.style.zIndex = '-1';
+                    clone.style.pointerEvents = 'none';
+                    document.body.appendChild(clone);
+                    const rect = el.getBoundingClientRect();
+                    e.dataTransfer.setDragImage(
+                      clone,
+                      rect.width / 2,
+                      rect.height / 2,
+                    );
+                    requestAnimationFrame(() =>
+                      document.body.removeChild(clone),
+                    );
+                  }}
+                  className="cursor-grab"
+                >
+                  <CardPreview
+                    layout={{ ...DEFAULT_LAYOUT, scale: cardScale }}
+                    rarity="Riven"
+                    polarity=""
+                    modArt={rivenArt ? `/images${rivenArt}` : ''}
+                    modName="Riven Mod"
+                    modType=""
+                    modDescription="Place the mod to edit the perks"
+                    drain={0}
+                    rank={0}
+                    maxRank={0}
+                    collapsed={!expandMods}
+                  />
+                </div>
+              )}
               {!search && (
                 <div
                   onClick={onModRemove}
@@ -334,17 +398,6 @@ export function FilterPanel({
           )}
         </div>
       </div>
-
-      {showRivenBuilder && (
-        <RivenBuilder
-          availableStats={getRivenStatsForType(equipmentType)}
-          onSave={(config) => {
-            onRivenAdd?.(config);
-            setShowRivenBuilder(false);
-          }}
-          onClose={() => setShowRivenBuilder(false)}
-        />
-      )}
     </div>
   );
 }
@@ -379,62 +432,3 @@ function ModPickerCard({
   );
 }
 
-function getRivenStatsForType(type: EquipmentType): string[] {
-  const common = [
-    'Damage',
-    'Multishot',
-    'Critical Chance',
-    'Critical Damage',
-    'Status Chance',
-    'Status Duration',
-    'Fire Rate',
-    'Magazine Capacity',
-    'Reload Speed',
-    'Ammo Maximum',
-  ];
-
-  const ranged = [
-    ...common,
-    'Flight Speed',
-    'Recoil',
-    'Zoom',
-    'Impact',
-    'Puncture',
-    'Slash',
-    'Heat',
-    'Cold',
-    'Electricity',
-    'Toxin',
-  ];
-
-  const melee = [
-    'Damage',
-    'Critical Chance',
-    'Critical Damage',
-    'Status Chance',
-    'Status Duration',
-    'Attack Speed',
-    'Range',
-    'Combo Duration',
-    'Initial Combo',
-    'Slide Critical Chance',
-    'Finisher Damage',
-    'Impact',
-    'Puncture',
-    'Slash',
-    'Heat',
-    'Cold',
-    'Electricity',
-    'Toxin',
-  ];
-
-  switch (type) {
-    case 'melee':
-      return melee;
-    case 'primary':
-    case 'secondary':
-    case 'archgun':
-    default:
-      return ranged;
-  }
-}

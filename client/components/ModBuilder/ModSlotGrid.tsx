@@ -10,6 +10,7 @@ import {
   type ModSlot,
   type SlotType,
 } from '../../types/warframe';
+import { isRivenMod } from '../../utils/riven';
 import { ModCard, CardPreview, DEFAULT_LAYOUT } from '../ModCard';
 
 const POLARITY_CYCLE_FULL: (string | undefined)[] = [
@@ -54,6 +55,7 @@ interface ModSlotGridProps {
   onRemove: (slotIndex: number) => void;
   onRankChange: (slotIndex: number, rank: number) => void;
   onSetRankChange: (slotIndex: number, setRank: number) => void;
+  onEditRiven?: (slotIndex: number) => void;
   onSlotClick?: (slotIndex: number, slotType: ModSlot['type']) => void;
   onSwap?: (sourceSlotIndex: number, targetSlotIndex: number) => void;
   activeSlotIndex?: number;
@@ -68,6 +70,7 @@ export function ModSlotGrid({
   onRemove,
   onRankChange,
   onSetRankChange,
+  onEditRiven,
   onSlotClick,
   onSwap,
   activeSlotIndex,
@@ -143,6 +146,11 @@ export function ModSlotGrid({
               onSetRankChange={(sr) =>
                 onSetRankChange(specialSlots[0].index, sr)
               }
+              onEditRiven={
+                onEditRiven
+                  ? () => onEditRiven(specialSlots[0].index)
+                  : undefined
+              }
               onClick={() =>
                 formaMode
                   ? handleFormaClick(
@@ -178,6 +186,9 @@ export function ModSlotGrid({
               onRemove={() => onRemove(exilusSlot.index)}
               onRankChange={(rank) => onRankChange(exilusSlot.index, rank)}
               onSetRankChange={(sr) => onSetRankChange(exilusSlot.index, sr)}
+              onEditRiven={
+                onEditRiven ? () => onEditRiven(exilusSlot.index) : undefined
+              }
               onClick={() =>
                 formaMode
                   ? handleFormaClick(
@@ -218,6 +229,7 @@ export function ModSlotGrid({
                 onRemove={() => onRemove(slot.index)}
                 onRankChange={(rank) => onRankChange(slot.index, rank)}
                 onSetRankChange={(sr) => onSetRankChange(slot.index, sr)}
+                onEditRiven={onEditRiven ? () => onEditRiven(slot.index) : undefined}
                 onClick={() =>
                   formaMode
                     ? handleFormaClick(slot.index, slot.polarity, slot.type)
@@ -283,6 +295,7 @@ interface SlotCellProps {
   onRemove: () => void;
   onRankChange: (rank: number) => void;
   onSetRankChange: (rank: number) => void;
+  onEditRiven?: () => void;
   onClick?: () => void;
   onRightClick?: () => void;
   label?: string;
@@ -301,6 +314,7 @@ function SlotCell({
   onRemove,
   onRankChange,
   onSetRankChange,
+  onEditRiven,
   onClick,
   onRightClick,
   label,
@@ -487,6 +501,18 @@ function SlotCell({
                         </button>
                       </>
                     )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditRiven?.();
+                    }}
+                    className={`absolute left-[12px] flex h-[15px] w-[15px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[7px] font-bold text-foreground backdrop-blur-md transition-colors hover:text-accent ${
+                      isRivenMod(slot.mod) ? '' : 'hidden'
+                    }`}
+                    title="Edit Riven"
+                  >
+                    E
+                  </button>
                   <button
                     onClick={onRemove}
                     className="absolute right-[12px] flex h-[15px] w-[15px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[7px] font-bold text-foreground backdrop-blur-md transition-colors hover:text-danger"

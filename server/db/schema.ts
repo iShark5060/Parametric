@@ -59,6 +59,7 @@ export function createAppSchema(): void {
       noise TEXT,
       trigger_type TEXT,
       omega_attenuation REAL,
+      riven_disposition REAL,
       max_level_cap INTEGER,
       sentinel INTEGER DEFAULT 0,
       -- Melee-specific
@@ -242,6 +243,11 @@ export function createAppSchema(): void {
       table: 'weapons',
       column: 'fire_behaviors',
       sql: 'ALTER TABLE weapons ADD COLUMN fire_behaviors TEXT',
+    },
+    {
+      table: 'weapons',
+      column: 'riven_disposition',
+      sql: 'ALTER TABLE weapons ADD COLUMN riven_disposition REAL',
     },
     {
       table: 'abilities',
