@@ -10,6 +10,22 @@ function wantsJson(req: Request): boolean {
   return req.accepts('json') !== false;
 }
 
+function touchSessionFromState(
+  req: Request,
+  state: { user: { id: number; username: string; is_admin: boolean } | null },
+): void {
+  if (!state.user) return;
+  req.session.user_id = state.user.id;
+  req.session.username = state.user.username;
+  req.session.is_admin = state.user.is_admin;
+  if (
+    typeof req.session.login_time !== 'number' ||
+    Date.now() - req.session.login_time > 5 * 60 * 1000
+  ) {
+    req.session.login_time = Date.now();
+  }
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,
@@ -55,10 +71,7 @@ export function requireGameAccess(gameId: string) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    req.session.user_id = state.user.id;
-    req.session.username = state.user.username;
-    req.session.is_admin = state.user.is_admin;
-    req.session.login_time = Date.now();
+    touchSessionFromState(req, state);
     if (!state.has_game_access) {
       res
         .status(403)
@@ -87,10 +100,7 @@ export async function requirePageGameAccess(
     res.redirect(buildAuthLoginUrl(req));
     return;
   }
-  req.session.user_id = state.user.id;
-  req.session.username = state.user.username;
-  req.session.is_admin = state.user.is_admin;
-  req.session.login_time = Date.now();
+  touchSessionFromState(req, state);
   if (!state.has_game_access) {
     res.redirect(buildAuthLoginUrl(req, '/'));
     return;

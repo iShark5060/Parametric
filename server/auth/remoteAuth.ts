@@ -6,6 +6,12 @@ const AUTH_SERVICE_URL =
   process.env.AUTH_SERVICE_URL?.replace(/\/+$/, '') ??
   'https://auth.shark5060.net';
 const DEFAULT_AUTH_SERVICE_URL = 'https://auth.shark5060.net';
+const AUTH_FETCH_TIMEOUT_MS = Number.parseInt(
+  process.env.AUTH_FETCH_TIMEOUT_MS ?? '5000',
+  10,
+);
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+const AUTH_STATE_CACHE_KEY = Symbol('parametricAuthStateCache');
 
 function resolveAuthServiceUrl(req?: Request): string {
   if (!req) return AUTH_SERVICE_URL;
@@ -35,22 +41,44 @@ export interface RemoteAuthState {
 }
 
 function getProto(req: Request): string {
-  const forwardedProto = req.headers['x-forwarded-proto'];
-  if (Array.isArray(forwardedProto)) return forwardedProto[0] || req.protocol;
-  if (typeof forwardedProto === 'string' && forwardedProto.length > 0) {
-    return forwardedProto.split(',')[0]?.trim() || req.protocol;
+  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
+  if (configuredBase) {
+    try {
+      return new URL(configuredBase).protocol.replace(':', '');
+    } catch {
+      // fall back below
+    }
   }
+  if (process.env.NODE_ENV === 'production') return 'https';
   return req.protocol;
 }
 
 function getHost(req: Request): string {
-  const forwardedHost = req.headers['x-forwarded-host'];
-  if (Array.isArray(forwardedHost))
-    return forwardedHost[0] || req.get('host') || '';
-  if (typeof forwardedHost === 'string' && forwardedHost.length > 0) {
-    return forwardedHost.split(',')[0]?.trim() || req.get('host') || '';
+  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
+  if (configuredBase) {
+    try {
+      return new URL(configuredBase).host;
+    } catch {
+      // fall back below
+    }
   }
-  return req.get('host') || '';
+  return req.get('host') || 'localhost';
+}
+
+type AuthStateCache = Partial<Record<string, Promise<RemoteAuthState>>>;
+
+function cacheKeyForGame(gameId?: string): string {
+  return gameId ?? '__global__';
+}
+
+function getRequestAuthCache(req: Request): AuthStateCache {
+  const reqWithCache = req as Request & {
+    [AUTH_STATE_CACHE_KEY]?: AuthStateCache;
+  };
+  if (!reqWithCache[AUTH_STATE_CACHE_KEY]) {
+    reqWithCache[AUTH_STATE_CACHE_KEY] = {};
+  }
+  return reqWithCache[AUTH_STATE_CACHE_KEY];
 }
 
 export function buildAuthLoginUrl(req: Request, nextPath?: string): string {
@@ -67,48 +95,61 @@ export async function fetchRemoteAuthState(
   req: Request,
   gameId = GAME_ID,
 ): Promise<RemoteAuthState> {
-  const meUrl = new URL(`${resolveAuthServiceUrl(req)}/api/auth/me`);
-  meUrl.searchParams.set('app', gameId);
-  try {
-    const upstream = await fetch(meUrl, {
-      method: 'GET',
-      headers: {
-        cookie: req.headers.cookie ?? '',
-        accept: 'application/json',
-      },
-    });
-    if (!upstream.ok) {
+  const cache = getRequestAuthCache(req);
+  const cacheKey = cacheKeyForGame(gameId);
+  if (cache[cacheKey]) return await cache[cacheKey];
+
+  cache[cacheKey] = (async () => {
+    const meUrl = new URL(`${resolveAuthServiceUrl(req)}/api/auth/me`);
+    meUrl.searchParams.set('app', gameId);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+    try {
+      const upstream = await fetch(meUrl, {
+        method: 'GET',
+        headers: {
+          cookie: req.headers.cookie ?? '',
+          accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+      if (!upstream.ok) {
+        return {
+          authenticated: false,
+          has_game_access: false,
+          user: null,
+          permissions: [],
+        };
+      }
+      const body = (await upstream.json()) as Partial<RemoteAuthState>;
+      const user = body.user;
+      return {
+        authenticated: body.authenticated === true,
+        has_game_access: body.has_game_access === true,
+        user:
+          user &&
+          typeof user.id === 'number' &&
+          typeof user.username === 'string' &&
+          typeof user.is_admin === 'boolean'
+            ? user
+            : null,
+        permissions: Array.isArray(body.permissions)
+          ? body.permissions.filter((p): p is string => typeof p === 'string')
+          : [],
+      };
+    } catch {
       return {
         authenticated: false,
         has_game_access: false,
         user: null,
         permissions: [],
       };
+    } finally {
+      clearTimeout(timeout);
     }
-    const body = (await upstream.json()) as Partial<RemoteAuthState>;
-    const user = body.user;
-    return {
-      authenticated: body.authenticated === true,
-      has_game_access: body.has_game_access === true,
-      user:
-        user &&
-        typeof user.id === 'number' &&
-        typeof user.username === 'string' &&
-        typeof user.is_admin === 'boolean'
-          ? user
-          : null,
-      permissions: Array.isArray(body.permissions)
-        ? body.permissions.filter((p): p is string => typeof p === 'string')
-        : [],
-    };
-  } catch {
-    return {
-      authenticated: false,
-      has_game_access: false,
-      user: null,
-      permissions: [],
-    };
-  }
+  })();
+
+  return await cache[cacheKey];
 }
 
 export async function syncSessionFromAuth(
@@ -125,7 +166,12 @@ export async function syncSessionFromAuth(
   req.session.user_id = state.user.id;
   req.session.username = state.user.username;
   req.session.is_admin = state.user.is_admin;
-  req.session.login_time = Date.now();
+  if (
+    typeof req.session.login_time !== 'number' ||
+    Date.now() - req.session.login_time > SESSION_TOUCH_INTERVAL_MS
+  ) {
+    req.session.login_time = Date.now();
+  }
   return state;
 }
 
@@ -136,6 +182,8 @@ export async function proxyAuthJson(
 ): Promise<void> {
   const url = `${resolveAuthServiceUrl(req)}${path}`;
   const method = req.method.toUpperCase();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
   try {
     const upstream = await fetch(url, {
       method,
@@ -145,6 +193,7 @@ export async function proxyAuthJson(
         cookie: req.headers.cookie ?? '',
       },
       body: method === 'GET' ? undefined : JSON.stringify(req.body ?? {}),
+      signal: controller.signal,
     });
 
     const setCookies = (
@@ -165,6 +214,8 @@ export async function proxyAuthJson(
     res.send(responseText);
   } catch {
     res.status(502).json({ error: 'Auth service unavailable' });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -177,6 +228,8 @@ export async function proxyAuthLogout(
   const next = `${proto}://${host}/login`;
   const logoutUrl = new URL(`${resolveAuthServiceUrl(req)}/logout`);
   logoutUrl.searchParams.set('next', next);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
 
   try {
     const upstream = await fetch(logoutUrl, {
@@ -186,6 +239,7 @@ export async function proxyAuthLogout(
         accept: 'text/html',
       },
       redirect: 'manual',
+      signal: controller.signal,
     });
 
     const setCookies = (
@@ -205,5 +259,7 @@ export async function proxyAuthLogout(
     req.session.destroy(() => {
       res.status(502).json({ error: 'Auth service unavailable' });
     });
+  } finally {
+    clearTimeout(timeout);
   }
 }
