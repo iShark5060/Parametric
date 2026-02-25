@@ -506,6 +506,11 @@ html.theme-light .archon-shard-filled-bg--tau {
 .mod-slot-card {
   position: relative;
   perspective: 900px;
+  z-index: 1;
+}
+
+.mod-slot-card:hover {
+  z-index: 80;
 }
 
 .mod-slot-card .mod-slot-expanded {
