@@ -80,7 +80,6 @@ const baselineLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) =>
     req.path === '/healthz' ||
-    req.path === '/readyz' ||
     req.path === '/favicon.ico' ||
     req.path.startsWith('/images/') ||
     req.path.startsWith('/icons/') ||
