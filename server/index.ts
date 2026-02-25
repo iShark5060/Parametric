@@ -8,11 +8,12 @@ import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { hasAccess, isAuthenticated, type AuthSession } from './auth/auth.js';
 import {
+  authLoginRedirect,
   requireAuthApi,
   requireAdmin,
   requireGameAccess,
+  requirePageGameAccess,
 } from './auth/middleware.js';
 import {
   PORT,
@@ -175,30 +176,10 @@ if (NODE_ENV === 'production') {
   app.use(publicPageLimiter, express.static(clientDir));
 
   app.get('/login', publicPageLimiter, (req, res) => {
-    const authSession = req.session as AuthSession;
-    const userId = authSession?.user_id;
-    if (
-      isAuthenticated(authSession) &&
-      typeof userId === 'number' &&
-      hasAccess(userId, GAME_ID)
-    ) {
-      res.redirect('/builder');
-      return;
-    }
-    res.sendFile(path.join(clientDir, 'index.html'));
+    authLoginRedirect(req, res);
   });
 
-  app.get(/.*/, publicPageLimiter, (req, res) => {
-    const authSession = req.session as AuthSession;
-    const userId = authSession?.user_id;
-    const allowed =
-      isAuthenticated(authSession) &&
-      typeof userId === 'number' &&
-      hasAccess(userId, GAME_ID);
-    if (!allowed) {
-      res.redirect('/login');
-      return;
-    }
+  app.get(/.*/, publicPageLimiter, requirePageGameAccess, (_req, res) => {
     res.sendFile(path.join(clientDir, 'index.html'));
   });
 }

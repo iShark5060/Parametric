@@ -1,39 +1,39 @@
 import type { Request, Response, NextFunction } from 'express';
 
-import {
-  type AuthSession,
-  isAuthenticated,
-  isAdmin as checkAdmin,
-  hasAccess,
-} from './auth.js';
+import { buildAuthLoginUrl, fetchRemoteAuthState, syncSessionFromAuth } from './remoteAuth.js';
 
-function getSession(req: Request): AuthSession {
-  return req.session as AuthSession;
+function wantsJson(req: Request): boolean {
+  return req.accepts('json') !== false;
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
-  if (isAuthenticated(getSession(req))) {
+): Promise<void> {
+  const state = await syncSessionFromAuth(req);
+  if (state.authenticated) {
     next();
     return;
   }
-  res.status(401).json({ error: 'Authentication required' });
-}
-
-export function requireAdmin(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  const session = getSession(req);
-  if (!isAuthenticated(session)) {
+  if (wantsJson(req)) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  if (!checkAdmin(session)) {
+  res.redirect(buildAuthLoginUrl(req));
+}
+
+export async function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const state = await syncSessionFromAuth(req);
+  if (!state.authenticated || !state.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  if (!state.user.is_admin) {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }
@@ -41,18 +41,17 @@ export function requireAdmin(
 }
 
 export function requireGameAccess(gameId: string) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const session = getSession(req);
-    if (!isAuthenticated(session)) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const state = await fetchRemoteAuthState(req, gameId);
+    if (!state.authenticated || !state.user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const userId = session?.user_id;
-    if (typeof userId !== 'number') {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-    if (!hasAccess(userId, gameId)) {
+    req.session.user_id = state.user.id;
+    req.session.username = state.user.username;
+    req.session.is_admin = state.user.is_admin;
+    req.session.login_time = Date.now();
+    if (!state.has_game_access) {
       res
         .status(403)
         .json({ error: 'Access to this application is not granted.' });
@@ -66,8 +65,69 @@ export function requireAuthApi(
   req: Request,
   res: Response,
   next: NextFunction,
-): void {
-  if (isAuthenticated(getSession(req))) {
+): Promise<void> {
+  return requireAuth(req, res, next);
+}
+
+export async function requirePageGameAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const state = await fetchRemoteAuthState(req);
+  if (!state.authenticated || !state.user) {
+    res.redirect(buildAuthLoginUrl(req));
+    return;
+  }
+  req.session.user_id = state.user.id;
+  req.session.username = state.user.username;
+  req.session.is_admin = state.user.is_admin;
+  req.session.login_time = Date.now();
+  if (!state.has_game_access) {
+    res.redirect(buildAuthLoginUrl(req, '/'));
+    return;
+  }
+  next();
+}
+
+export async function redirectIfAuthenticated(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const state = await fetchRemoteAuthState(req);
+  if (state.authenticated && state.has_game_access) {
+    res.redirect('/builder');
+    return;
+  }
+  next();
+}
+
+export function authLoginRedirect(req: Request, res: Response): void {
+  res.redirect(buildAuthLoginUrl(req));
+}
+
+export async function authStatus(req: Request, res: Response): Promise<void> {
+  const state = await fetchRemoteAuthState(req);
+  if (!state.authenticated || !state.user) {
+    res.json({ authenticated: false, has_game_access: false });
+    return;
+  }
+  res.json({
+    authenticated: true,
+    has_game_access: state.has_game_access,
+    user: state.user,
+    permissions: state.permissions,
+  });
+}
+
+export async function requireAuthApiJson(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const state = await syncSessionFromAuth(req);
+  if (state.authenticated) {
     next();
     return;
   }
