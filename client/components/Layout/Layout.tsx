@@ -7,6 +7,7 @@ import bgArt from '../../assets/background.txt?raw';
 import feathers from '../../assets/feathers.png';
 import { useCompare } from '../../context/CompareContext';
 import { useTheme } from '../../context/ThemeContext';
+import { apiFetch, clearCsrfToken } from '../../utils/api';
 import { CompareBar } from '../Compare/CompareBar';
 
 export function Layout() {
@@ -25,6 +26,17 @@ export function Layout() {
     },
     [navigate],
   );
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // If logout request fails, still clear local CSRF and continue to login.
+    } finally {
+      clearCsrfToken();
+      window.location.href = '/login';
+    }
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -88,6 +100,13 @@ export function Layout() {
               title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`}
             >
               <span aria-hidden="true">{mode === 'dark' ? '☀' : '☾'}</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary text-sm"
+              onClick={handleLogout}
+            >
+              Logout
             </button>
           </div>
         </div>

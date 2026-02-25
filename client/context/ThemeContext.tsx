@@ -16,14 +16,35 @@ interface ThemeContextValue {
 }
 
 const THEME_STORAGE_KEY = 'parametric.theme.mode';
+const SHARED_THEME_STORAGE_KEY = 'dal.theme.mode';
+const SHARED_THEME_COOKIE = 'dal.theme.mode';
+const SHARED_THEME_COOKIE_DOMAIN = '.shark5060.net';
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function resolveInitialMode(): ThemeMode {
   if (typeof window === 'undefined') return 'dark';
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const stored =
+    window.localStorage.getItem(SHARED_THEME_STORAGE_KEY) ??
+    window.localStorage.getItem(THEME_STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
+  const cookieTheme = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SHARED_THEME_COOKIE}=`))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+  if (cookieTheme === 'light' || cookieTheme === 'dark') return cookieTheme;
   return 'dark';
+}
+
+function writeThemeCookie(mode: ThemeMode): void {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  const base = `${SHARED_THEME_COOKIE}=${mode}; Max-Age=${ONE_YEAR_SECONDS}; Path=/; SameSite=Lax${secure}`;
+  document.cookie = base;
+  document.cookie = `${base}; Domain=${SHARED_THEME_COOKIE_DOMAIN}`;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -33,7 +54,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.remove('theme-light', 'theme-dark');
     root.classList.add(`theme-${mode}`);
+    window.localStorage.setItem(SHARED_THEME_STORAGE_KEY, mode);
     window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+    writeThemeCookie(mode);
   }, [mode]);
 
   const value = useMemo<ThemeContextValue>(
