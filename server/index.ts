@@ -61,6 +61,11 @@ try {
 const app = express();
 
 if (TRUST_PROXY) app.set('trust proxy', 1);
+if (NODE_ENV === 'production' && SECURE_COOKIES && !TRUST_PROXY) {
+  throw new Error(
+    'TRUST_PROXY must be enabled in production when SECURE_COOKIES is enabled.',
+  );
+}
 
 app.use(helmet());
 
@@ -95,9 +100,6 @@ app.use(
 const { csrfSynchronisedProtection, generateToken } = csrfSync({
   getTokenFromRequest: (req: express.Request) => {
     if (req.body?._csrf) return req.body._csrf as string;
-    const q = req.query?._csrf;
-    if (Array.isArray(q)) return (q[0] as string) ?? null;
-    if (typeof q === 'string') return q;
     const header = req.headers['x-csrf-token'] || req.headers['x-xsrf-token'];
     return (Array.isArray(header) ? header[0] : header) ?? null;
   },
@@ -172,6 +174,19 @@ app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+app.get('/healthz', (_req, res) => {
+  res.json({ status: 'ok', app: APP_NAME });
+});
+
+app.get('/readyz', (_req, res) => {
+  try {
+    centralDb.prepare('SELECT 1').get();
+    res.json({ status: 'ready', app: APP_NAME });
+  } catch {
+    res.status(503).json({ status: 'not_ready', app: APP_NAME });
+  }
+});
+
 if (NODE_ENV === 'production') {
   const clientDir = path.resolve(__dirname, '..', 'client');
   app.use(publicPageLimiter, express.static(clientDir));
@@ -197,7 +212,7 @@ app.use(
   },
 );
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(
     `[${APP_NAME}] Server running on http://${HOST}:${PORT} (${NODE_ENV})`,
   );
@@ -206,5 +221,28 @@ app.listen(PORT, HOST, () => {
     console.error('[Startup] Pipeline failed:', err);
   });
 });
+
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+function shutdown(): void {
+  let done = false;
+  function closeAndExit(): void {
+    if (done) return;
+    done = true;
+    try {
+      centralDb.close();
+    } catch (err) {
+      console.error('[Shutdown] Failed to close central DB:', err);
+    }
+    process.exit(0); // eslint-disable-line n/no-process-exit -- required for graceful shutdown
+  }
+  const timeout = setTimeout(() => closeAndExit(), SHUTDOWN_TIMEOUT_MS);
+  server.close(() => {
+    clearTimeout(timeout);
+    closeAndExit();
+  });
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 export default app;

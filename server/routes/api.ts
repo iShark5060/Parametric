@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 
+import { requireAdmin } from '../auth/middleware.js';
 import { getDb } from '../db/connection.js';
 
 export const apiRouter = Router();
@@ -303,103 +304,123 @@ apiRouter.get('/archon-shards', (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.put('/archon-shards/types/:id', (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const { name, icon_path, tauforged_icon_path, sort_order } = req.body;
-    db.prepare(
-      'UPDATE archon_shard_types SET name = ?, icon_path = ?, tauforged_icon_path = ?, sort_order = ? WHERE id = ?',
-    ).run(name, icon_path, tauforged_icon_path, sort_order, req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
-  }
-});
+apiRouter.put(
+  '/archon-shards/types/:id',
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const db = getDb();
+      const { name, icon_path, tauforged_icon_path, sort_order } = req.body;
+      db.prepare(
+        'UPDATE archon_shard_types SET name = ?, icon_path = ?, tauforged_icon_path = ?, sort_order = ? WHERE id = ?',
+      ).run(name, icon_path, tauforged_icon_path, sort_order, req.params.id);
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  },
+);
 
-apiRouter.post('/archon-shards/types', (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const { id, name, icon_path, tauforged_icon_path, sort_order } = req.body;
-    db.prepare(
-      'INSERT INTO archon_shard_types (id, name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?, ?)',
-    ).run(id, name, icon_path, tauforged_icon_path, sort_order || 0);
-    res.json({ success: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
-  }
-});
+apiRouter.post(
+  '/archon-shards/types',
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const db = getDb();
+      const { id, name, icon_path, tauforged_icon_path, sort_order } = req.body;
+      db.prepare(
+        'INSERT INTO archon_shard_types (id, name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?, ?)',
+      ).run(id, name, icon_path, tauforged_icon_path, sort_order || 0);
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  },
+);
 
-apiRouter.post('/archon-shards/buffs', (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const {
-      shard_type_id,
-      description,
-      base_value,
-      tauforged_value,
-      value_format,
-      sort_order,
-    } = req.body;
-    const result = db
-      .prepare(
-        'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-      )
-      .run(
+apiRouter.post(
+  '/archon-shards/buffs',
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const db = getDb();
+      const {
         shard_type_id,
         description,
         base_value,
         tauforged_value,
-        value_format || '%',
-        sort_order || 0,
+        value_format,
+        sort_order,
+      } = req.body;
+      const result = db
+        .prepare(
+          'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+        )
+        .run(
+          shard_type_id,
+          description,
+          base_value,
+          tauforged_value,
+          value_format || '%',
+          sort_order || 0,
+        );
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  },
+);
+
+apiRouter.put(
+  '/archon-shards/buffs/:id',
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const db = getDb();
+      const {
+        description,
+        base_value,
+        tauforged_value,
+        value_format,
+        sort_order,
+      } = req.body;
+      db.prepare(
+        'UPDATE archon_shard_buffs SET description = ?, base_value = ?, tauforged_value = ?, value_format = ?, sort_order = ? WHERE id = ?',
+      ).run(
+        description,
+        base_value,
+        tauforged_value,
+        value_format,
+        sort_order,
+        req.params.id,
       );
-    res.json({ success: true, id: result.lastInsertRowid });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
-  }
-});
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  },
+);
 
-apiRouter.put('/archon-shards/buffs/:id', (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    const {
-      description,
-      base_value,
-      tauforged_value,
-      value_format,
-      sort_order,
-    } = req.body;
-    db.prepare(
-      'UPDATE archon_shard_buffs SET description = ?, base_value = ?, tauforged_value = ?, value_format = ?, sort_order = ? WHERE id = ?',
-    ).run(
-      description,
-      base_value,
-      tauforged_value,
-      value_format,
-      sort_order,
-      req.params.id,
-    );
-    res.json({ success: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
-  }
-});
-
-apiRouter.delete('/archon-shards/buffs/:id', (req: Request, res: Response) => {
-  try {
-    const db = getDb();
-    db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(
-      req.params.id,
-    );
-    res.json({ success: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
-  }
-});
+apiRouter.delete(
+  '/archon-shards/buffs/:id',
+  requireAdmin,
+  (req: Request, res: Response) => {
+    try {
+      const db = getDb();
+      db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(
+        req.params.id,
+      );
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
+  },
+);
 
 apiRouter.get('/loadouts', (req: Request, res: Response) => {
   try {
