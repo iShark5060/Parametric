@@ -30,7 +30,8 @@ function getProto(req: Request): string {
 
 function getHost(req: Request): string {
   const forwardedHost = req.headers['x-forwarded-host'];
-  if (Array.isArray(forwardedHost)) return forwardedHost[0] || req.get('host') || '';
+  if (Array.isArray(forwardedHost))
+    return forwardedHost[0] || req.get('host') || '';
   if (typeof forwardedHost === 'string' && forwardedHost.length > 0) {
     return forwardedHost.split(',')[0]?.trim() || req.get('host') || '';
   }
@@ -95,7 +96,9 @@ export async function fetchRemoteAuthState(
   }
 }
 
-export async function syncSessionFromAuth(req: Request): Promise<RemoteAuthState> {
+export async function syncSessionFromAuth(
+  req: Request,
+): Promise<RemoteAuthState> {
   const state = await fetchRemoteAuthState(req, GAME_ID);
   if (!state.authenticated || !state.user) {
     delete req.session.user_id;
@@ -129,9 +132,11 @@ export async function proxyAuthJson(
       body: method === 'GET' ? undefined : JSON.stringify(req.body ?? {}),
     });
 
-    const setCookies = (upstream.headers as Headers & {
-      getSetCookie?: () => string[];
-    }).getSetCookie?.();
+    const setCookies = (
+      upstream.headers as Headers & {
+        getSetCookie?: () => string[];
+      }
+    ).getSetCookie?.();
     if (setCookies && setCookies.length > 0) {
       res.setHeader('set-cookie', setCookies);
     }

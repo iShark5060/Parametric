@@ -1,6 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 
-import { buildAuthLoginUrl, fetchRemoteAuthState, syncSessionFromAuth } from './remoteAuth.js';
+import {
+  buildAuthLoginUrl,
+  fetchRemoteAuthState,
+  syncSessionFromAuth,
+} from './remoteAuth.js';
 
 function wantsJson(req: Request): boolean {
   return req.accepts('json') !== false;
@@ -41,7 +45,11 @@ export async function requireAdmin(
 }
 
 export function requireGameAccess(gameId: string) {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     const state = await fetchRemoteAuthState(req, gameId);
     if (!state.authenticated || !state.user) {
       res.status(401).json({ error: 'Authentication required' });

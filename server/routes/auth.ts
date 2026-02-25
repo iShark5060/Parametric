@@ -26,9 +26,13 @@ authRouter.get('/csrf', (req: Request, res: Response) => {
   res.json({ csrfToken: token ?? '' });
 });
 
-authRouter.get('/login', redirectIfAuthenticated, (req: Request, res: Response) => {
-  authLoginRedirect(req, res);
-});
+authRouter.get(
+  '/login',
+  redirectIfAuthenticated,
+  (req: Request, res: Response) => {
+    authLoginRedirect(req, res);
+  },
+);
 
 authRouter.post('/login', async (req: Request, res: Response) => {
   await proxyAuthJson(req, res, '/api/auth/login');
@@ -59,13 +63,21 @@ authRouter.get('/users', requireAdmin, (_req: Request, res: Response) => {
   userMgmtMoved(res);
 });
 
-authRouter.delete('/users/:id', requireAdmin, (_req: Request, res: Response) => {
-  userMgmtMoved(res);
-});
+authRouter.delete(
+  '/users/:id',
+  requireAdmin,
+  (_req: Request, res: Response) => {
+    userMgmtMoved(res);
+  },
+);
 
-authRouter.post('/game-access', requireAdmin, (_req: Request, res: Response) => {
-  userMgmtMoved(res);
-});
+authRouter.post(
+  '/game-access',
+  requireAdmin,
+  (_req: Request, res: Response) => {
+    userMgmtMoved(res);
+  },
+);
 
 authRouter.get(
   '/users/:id/games',
