@@ -73,6 +73,23 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const baselineLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.path === '/healthz' ||
+    req.path === '/readyz' ||
+    req.path === '/favicon.ico' ||
+    req.path.startsWith('/images/') ||
+    req.path.startsWith('/icons/') ||
+    /^\/assets\/.+\.(?:css|js|png|jpe?g|gif|webp|svg|ico|woff2?)$/i.test(
+      req.path,
+    ),
+});
+app.use(baselineLimiter);
+
 const sessionStore = new SQLiteStore({
   client: centralDb,
   expired: { clear: true, intervalMs: 15 * 60 * 1000 },
