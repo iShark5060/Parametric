@@ -152,3 +152,43 @@ export async function proxyAuthJson(
     res.status(502).json({ error: 'Auth service unavailable' });
   }
 }
+
+export async function proxyAuthLogout(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const host = getHost(req);
+  const proto = getProto(req);
+  const next = `${proto}://${host}/login`;
+  const logoutUrl = new URL(`${AUTH_SERVICE_URL}/logout`);
+  logoutUrl.searchParams.set('next', next);
+
+  try {
+    const upstream = await fetch(logoutUrl, {
+      method: 'GET',
+      headers: {
+        cookie: req.headers.cookie ?? '',
+        accept: 'text/html',
+      },
+      redirect: 'manual',
+    });
+
+    const setCookies = (
+      upstream.headers as Headers & {
+        getSetCookie?: () => string[];
+      }
+    ).getSetCookie?.();
+
+    if (setCookies && setCookies.length > 0) {
+      res.setHeader('set-cookie', setCookies);
+    }
+
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  } catch {
+    req.session.destroy(() => {
+      res.status(502).json({ error: 'Auth service unavailable' });
+    });
+  }
+}

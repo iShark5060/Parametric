@@ -7,7 +7,7 @@ import {
   redirectIfAuthenticated,
   requireAdmin,
 } from '../auth/middleware.js';
-import { proxyAuthJson } from '../auth/remoteAuth.js';
+import { proxyAuthJson, proxyAuthLogout } from '../auth/remoteAuth.js';
 
 export const authRouter = Router();
 
@@ -39,7 +39,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 });
 
 authRouter.post('/logout', async (req: Request, res: Response) => {
-  await proxyAuthJson(req, res, '/api/auth/logout');
+  await proxyAuthLogout(req, res);
 });
 
 authRouter.get('/me', authStatus);
