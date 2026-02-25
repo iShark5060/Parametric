@@ -301,7 +301,7 @@ function CollapsedHoverExpand({
     rx: 0,
     ry: 0,
   });
-  const TILT_MAX_DEG = 5;
+  const TILT_MAX_DEG = 15;
 
   useEffect(() => {
     if (!cardRef.current) {

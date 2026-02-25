@@ -49,7 +49,7 @@ const POLARITY_ICONS: Record<string, string> = {
   AP_ANY: 'universal',
 };
 
-const CARD_HOVER_TILT_MAX_DEG = 5;
+const CARD_HOVER_TILT_MAX_DEG = 15;
 
 function applyCardTiltFromMouse(
   target: HTMLElement,
