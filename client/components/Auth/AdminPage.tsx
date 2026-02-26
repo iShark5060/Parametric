@@ -30,9 +30,13 @@ interface ShardType {
 }
 
 const GAME_IDS = ['parametric', 'warframe', 'epic7'];
+const AUTH_ADMIN_URL_RAW = import.meta.env.VITE_AUTH_ADMIN_URL as
+  | string
+  | undefined;
 const AUTH_ADMIN_URL =
-  (import.meta.env.VITE_AUTH_ADMIN_URL as string | undefined) ??
-  'http://localhost:3010/admin';
+  typeof AUTH_ADMIN_URL_RAW === 'string' && AUTH_ADMIN_URL_RAW.trim().length > 0
+    ? AUTH_ADMIN_URL_RAW.trim()
+    : 'http://localhost:3010/admin';
 
 export function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);

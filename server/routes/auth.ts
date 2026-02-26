@@ -10,9 +10,9 @@ import {
 import { proxyAuthJson, proxyAuthLogout } from '../auth/remoteAuth.js';
 
 export const authRouter = Router();
-const AUTH_ADMIN_URL = `${(
-  process.env.AUTH_SERVICE_URL ?? 'http://localhost:3010'
-).replace(/\/+$/, '')}/admin`;
+const AUTH_SERVICE_BASE =
+  process.env.AUTH_SERVICE_URL?.trim() || 'http://localhost:3010';
+const AUTH_ADMIN_URL = `${AUTH_SERVICE_BASE.replace(/\/+$/, '')}/admin`;
 
 authRouter.use(
   rateLimit({
