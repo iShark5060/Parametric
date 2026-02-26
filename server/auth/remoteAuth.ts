@@ -49,7 +49,8 @@ if (
 
 const DEFAULT_AUTH_SERVICE_URL =
   parsedFallbackAuthServiceUrl ?? LOCAL_AUTH_SERVICE_FALLBACK;
-const AUTH_SERVICE_URL = parsedPrimaryAuthServiceUrl ?? DEFAULT_AUTH_SERVICE_URL;
+const AUTH_SERVICE_URL =
+  parsedPrimaryAuthServiceUrl ?? DEFAULT_AUTH_SERVICE_URL;
 const AUTH_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.AUTH_FETCH_TIMEOUT_MS ?? '5000',
   10,
