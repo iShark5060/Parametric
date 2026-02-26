@@ -12,6 +12,15 @@ import { CompareBar } from '../Compare/CompareBar';
 
 export function Layout() {
   const [showAddBuild, setShowAddBuild] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<{
+    type: 'ok' | 'err';
+    message: string;
+  } | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const navigate = useNavigate();
   const { snapshots } = useCompare();
   const { mode, toggleMode } = useTheme();
@@ -37,6 +46,62 @@ export function Layout() {
       window.location.href = '/login';
     }
   }, []);
+
+  const handleChangePassword = useCallback(async () => {
+    const current = currentPassword;
+    const next = newPassword;
+    const confirm = confirmPassword;
+    if (!current || !next) {
+      setPasswordStatus({
+        type: 'err',
+        message: 'Current password and new password are required.',
+      });
+      return;
+    }
+    if (next.length < 8) {
+      setPasswordStatus({
+        type: 'err',
+        message: 'New password must be at least 8 characters.',
+      });
+      return;
+    }
+    if (next !== confirm) {
+      setPasswordStatus({ type: 'err', message: 'Passwords do not match.' });
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const response = await apiFetch('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: current,
+          new_password: next,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        setPasswordStatus({
+          type: 'err',
+          message: body?.error || 'Failed to change password.',
+        });
+        return;
+      }
+      setPasswordStatus({ type: 'ok', message: 'Password updated.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch {
+      setPasswordStatus({
+        type: 'err',
+        message: 'Failed to change password.',
+      });
+    } finally {
+      setPasswordSaving(false);
+    }
+  }, [confirmPassword, currentPassword, newPassword]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -104,6 +169,16 @@ export function Layout() {
             <button
               type="button"
               className="btn btn-secondary text-sm"
+              onClick={() => {
+                setShowChangePassword(true);
+                setPasswordStatus(null);
+              }}
+            >
+              Change Password
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary text-sm"
               onClick={handleLogout}
             >
               Logout
@@ -124,6 +199,74 @@ export function Layout() {
           onSelect={handleEquipmentSelect}
           onClose={() => setShowAddBuild(false)}
         />
+      )}
+
+      {showChangePassword && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowChangePassword(false);
+            setPasswordStatus(null);
+          }}
+        >
+          <div className="modal max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-3 text-lg font-semibold text-foreground">
+              Change Password
+            </h3>
+            <div className="space-y-3">
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+              <input
+                type="password"
+                className="form-input"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {passwordStatus && (
+              <p
+                className={`mt-3 text-sm ${
+                  passwordStatus.type === 'ok' ? 'text-success' : 'text-danger'
+                }`}
+              >
+                {passwordStatus.message}
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary text-sm"
+                onClick={() => {
+                  setShowChangePassword(false);
+                  setPasswordStatus(null);
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="btn btn-accent text-sm"
+                onClick={handleChangePassword}
+                disabled={passwordSaving}
+              >
+                {passwordSaving ? 'Saving...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
