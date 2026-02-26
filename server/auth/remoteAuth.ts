@@ -21,7 +21,7 @@ function parseBaseUrl(
     return parsed.toString().replace(/\/+$/, '');
   } catch {
     console.warn(
-      `[auth.remoteAuth] Ignoring ${envName}: invalid base URL "${trimmed}".`,
+      `[auth.remoteAuth] Ignoring ${envName}: invalid base URL.`,
     );
     return null;
   }
