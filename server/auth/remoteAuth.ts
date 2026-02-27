@@ -42,17 +42,7 @@ const AUTH_FETCH_TIMEOUT_MS = Number.parseInt(
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTH_STATE_CACHE_KEY = Symbol('parametricAuthStateCache');
 
-function resolveAuthServiceUrl(req?: Request): string {
-  if (!req) return AUTH_SERVICE_URL;
-  try {
-    const configuredHost = new URL(AUTH_SERVICE_URL).host.toLowerCase();
-    const currentHost = getHost(req).toLowerCase();
-    if (configuredHost === currentHost) {
-      return AUTH_SERVICE_URL;
-    }
-  } catch {
-    return AUTH_SERVICE_URL;
-  }
+function resolveAuthServiceUrl(_req?: Request): string {
   return AUTH_SERVICE_URL;
 }
 

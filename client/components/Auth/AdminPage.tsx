@@ -43,67 +43,72 @@ function ArchonShardAdmin() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSaveBuff = async () => {
-    if (!editingBuff) return;
+  const handleApiCall = async (
+    apiCall: () => Promise<Response>,
+    successMessage: string,
+    failureMessage: string,
+  ) => {
     try {
-      const response = await apiFetch(
-        `/api/archon-shards/buffs/${editingBuff.id}`,
-        {
-          method: 'PUT',
-          body: JSON.stringify(editingBuff),
-        },
-      );
+      const response = await apiCall();
       if (!response.ok) {
-        throw new Error('Failed to save shard buff.');
+        throw new Error(failureMessage);
       }
-      setEditingBuff(null);
-      setStatusMessage('Shard buff saved.');
+      setStatusMessage(successMessage);
       setErrorMessage(null);
       refetch();
+      return true;
     } catch {
-      setErrorMessage('Failed to save shard buff.');
+      setStatusMessage(null);
+      setErrorMessage(failureMessage);
+      return false;
+    }
+  };
+
+  const handleSaveBuff = async () => {
+    if (!editingBuff) return;
+    const didSave = await handleApiCall(
+      () =>
+        apiFetch(`/api/archon-shards/buffs/${editingBuff.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(editingBuff),
+        }),
+      'Shard buff saved.',
+      'Failed to save shard buff.',
+    );
+    if (didSave) {
+      setEditingBuff(null);
     }
   };
 
   const handleDeleteBuff = async (id: number) => {
     if (!confirm('Delete this buff?')) return;
-    try {
-      const response = await apiFetch(`/api/archon-shards/buffs/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete shard buff.');
-      }
-      setStatusMessage('Shard buff deleted.');
-      setErrorMessage(null);
-      refetch();
-    } catch {
-      setErrorMessage('Failed to delete shard buff.');
-    }
+    await handleApiCall(
+      () =>
+        apiFetch(`/api/archon-shards/buffs/${id}`, {
+          method: 'DELETE',
+        }),
+      'Shard buff deleted.',
+      'Failed to delete shard buff.',
+    );
   };
 
   const handleAddBuff = async (shardTypeId: string) => {
-    try {
-      const response = await apiFetch('/api/archon-shards/buffs', {
-        method: 'POST',
-        body: JSON.stringify({
-          shard_type_id: shardTypeId,
-          description: 'New Buff',
-          base_value: 0,
-          tauforged_value: 0,
-          value_format: '%',
-          sort_order: 99,
+    await handleApiCall(
+      () =>
+        apiFetch('/api/archon-shards/buffs', {
+          method: 'POST',
+          body: JSON.stringify({
+            shard_type_id: shardTypeId,
+            description: 'New Buff',
+            base_value: 0,
+            tauforged_value: 0,
+            value_format: '%',
+            sort_order: 99,
+          }),
         }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to add shard buff.');
-      }
-      setStatusMessage('Shard buff added.');
-      setErrorMessage(null);
-      refetch();
-    } catch {
-      setErrorMessage('Failed to add shard buff.');
-    }
+      'Shard buff added.',
+      'Failed to add shard buff.',
+    );
   };
 
   return (

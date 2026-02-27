@@ -28,8 +28,8 @@ interface AuthContextValue {
   updateProfile: (
     updates: Partial<Pick<AppAccountProfile, 'displayName' | 'email'>>,
   ) => void;
-  refresh: () => Promise<void>;
-  logout: () => Promise<void>;
+  refresh: (signal?: AbortSignal) => Promise<void>;
+  logout: (redirectPath?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -45,29 +45,52 @@ function buildProfile(user: RemoteAuthUser): AppAccountProfile {
   };
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+  defaultLogoutRedirectPath?: string;
+}
+
+export function AuthProvider({
+  children,
+  defaultLogoutRedirectPath = '/builder',
+}: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [account, setAccount] = useState<AppAccountState>({
     isAuthenticated: false,
     profile: null,
   });
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await apiFetch('/api/auth/me');
+      const res = await apiFetch('/api/auth/me', { signal });
+      if (signal?.aborted) {
+        return;
+      }
       if (!res.ok) {
+        if (signal?.aborted) {
+          return;
+        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
 
       const data = (await res.json()) as RemoteAuthState;
-      if (!data.authenticated) {
+      if (signal?.aborted) {
+        return;
+      }
+      if (data.authenticated !== true) {
+        if (signal?.aborted) {
+          return;
+        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
-      if (!data.has_game_access) {
+      if (data.has_game_access !== true) {
+        if (signal?.aborted) {
+          return;
+        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('forbidden');
         return;
@@ -80,21 +103,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         typeof user.username !== 'string' ||
         typeof user.is_admin !== 'boolean'
       ) {
+        if (signal?.aborted) {
+          return;
+        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
 
+      if (signal?.aborted) {
+        return;
+      }
       setAccount({ isAuthenticated: true, profile: buildProfile(user) });
       setStatus('ok');
-    } catch {
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
       setAccount({ isAuthenticated: false, profile: null });
       setStatus('unauthenticated');
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const controller = new AbortController();
+    void refresh(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [refresh]);
 
   const updateProfile = useCallback<AuthContextValue['updateProfile']>(
@@ -109,16 +148,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (redirectPath?: string) => {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // ignore
     } finally {
       clearCsrfToken();
-      window.location.href = buildCentralAuthLoginUrl('/builder');
+      window.location.href = buildCentralAuthLoginUrl(
+        redirectPath ?? defaultLogoutRedirectPath,
+      );
     }
-  }, []);
+  }, [defaultLogoutRedirectPath]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, account, updateProfile, refresh, logout }),

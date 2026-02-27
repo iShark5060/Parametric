@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 
 interface ModalProps {
@@ -9,7 +10,7 @@ interface ModalProps {
 }
 
 const FOCUSABLE_SELECTOR =
-  'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
+  'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function Modal({
   open,
@@ -20,15 +21,27 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return undefined;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
     const dialog = dialogRef.current;
-    if (!dialog) return undefined;
+    if (!dialog) {
+      return () => {
+        document.body.style.overflow = previousBodyOverflow;
+        previousFocusRef.current?.focus();
+      };
+    }
 
     const focusables = Array.from(
       dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
@@ -38,13 +51,13 @@ export function Modal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab') return;
       const nodes = Array.from(
         dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter((node) => !node.hasAttribute('disabled'));
+      );
       if (nodes.length === 0) {
         event.preventDefault();
         dialog.focus();
@@ -65,18 +78,16 @@ export function Modal({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;
   }
 
-  const modalClass = ['modal'];
-  if (className) {
-    modalClass.push(className);
-  }
+  const modalClass = clsx('modal', className);
 
   const stopPropagation = (event: MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -85,7 +96,7 @@ export function Modal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={modalClass.join(' ')}
+        className={modalClass}
         ref={dialogRef}
         onClick={stopPropagation}
         role="dialog"

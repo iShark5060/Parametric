@@ -28,7 +28,8 @@ async function getCsrfToken(): Promise<string | null> {
   }
 
   const generationAtStart = csrfTokenGeneration;
-  inFlightPromise = (async () => {
+  const ref = { promise: null as Promise<string | null> | null };
+  inFlightPromise = ref.promise = (async () => {
     try {
       const res = await fetch('/api/auth/csrf');
       if (!res.ok) {
@@ -45,7 +46,7 @@ async function getCsrfToken(): Promise<string | null> {
     } catch {
       return null;
     } finally {
-      inFlightPromise = null;
+      if (inFlightPromise === ref.promise) inFlightPromise = null;
     }
   })();
 
@@ -81,6 +82,17 @@ async function isCsrfFailureResponse(response: Response): Promise<boolean> {
   }
 }
 
+function setJsonContentType(headers: Headers, init?: RequestInit): void {
+  if (
+    !headers.has('Content-Type') &&
+    init?.body &&
+    typeof init.body === 'string' &&
+    (init.body.startsWith('{') || init.body.startsWith('['))
+  ) {
+    headers.set('Content-Type', 'application/json');
+  }
+}
+
 export async function apiFetch(
   url: string,
   init?: RequestInit,
@@ -90,13 +102,10 @@ export async function apiFetch(
     method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 
   const headers = new Headers(init?.headers);
-  if (
-    !headers.has('Content-Type') &&
-    init?.body &&
-    typeof init.body === 'string'
-  ) {
-    headers.set('Content-Type', 'application/json');
-  }
+  // Only auto-set Content-Type for string bodies that look like JSON (start with { or [).
+  // Callers must explicitly set Content-Type for XML, plain text, or other non-JSON string
+  // payloads to avoid mislabeling and surprising server behavior.
+  setJsonContentType(headers, init);
 
   if (needsCsrf) {
     const csrfToken = await getCsrfToken();
@@ -109,6 +118,7 @@ export async function apiFetch(
   const response = await fetch(url, { ...init, headers });
   if (response.status === 401) {
     redirectToCentralAuth();
+    return response;
   }
   if (!needsCsrf || !(await isCsrfFailureResponse(response))) {
     return response;
@@ -121,13 +131,7 @@ export async function apiFetch(
   }
 
   const retryHeaders = new Headers(init?.headers);
-  if (
-    !retryHeaders.has('Content-Type') &&
-    init?.body &&
-    typeof init.body === 'string'
-  ) {
-    retryHeaders.set('Content-Type', 'application/json');
-  }
+  setJsonContentType(retryHeaders, init);
   retryHeaders.set('X-CSRF-Token', freshCsrfToken);
   return fetch(url, { ...init, headers: retryHeaders });
 }

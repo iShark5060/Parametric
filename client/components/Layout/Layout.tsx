@@ -10,7 +10,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { EquipmentGridModal } from './EquipmentGridModal';
 import { SearchBar } from './SearchBar';
 import { APP_DISPLAY_NAME, LEGAL_ENTITY_NAME } from '../../app/config';
-import { APP_PATHS } from '../../app/paths';
+import { APP_PATHS, buildNewPath } from '../../app/paths';
 import bgArt from '../../assets/background.txt?raw';
 import feathers from '../../assets/feathers.png';
 import { Menu } from '../../components/ui/Menu';
@@ -24,6 +24,7 @@ export function Layout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const prevUserMenuOpenRef = useRef(false);
   const userMenuId = 'parametric-user-menu';
   const navigate = useNavigate();
   const { snapshots } = useCompare();
@@ -35,9 +36,7 @@ export function Layout() {
   const handleEquipmentSelect = useCallback(
     (equipmentType: string, uniqueName: string) => {
       setShowAddBuild(false);
-      navigate(
-        `/builder/new/${equipmentType}/${encodeURIComponent(uniqueName)}`,
-      );
+      navigate(buildNewPath(equipmentType, uniqueName));
     },
     [navigate],
   );
@@ -73,9 +72,10 @@ export function Layout() {
     if (userMenuOpen && items.length > 0) {
       items[0].focus();
     }
-    if (!userMenuOpen) {
+    if (prevUserMenuOpenRef.current && !userMenuOpen) {
       menuButtonRef.current?.focus();
     }
+    prevUserMenuOpenRef.current = userMenuOpen;
   }, [userMenuOpen]);
 
   const handleUserMenuKeyDown = useCallback(
@@ -228,8 +228,13 @@ export function Layout() {
                 </span>
               </button>
               {userMenuOpen && (
-                <Menu className="focus:outline-none">
-                  <div id={userMenuId} onKeyDown={handleUserMenuKeyDown}>
+                <Menu baseClass="user-menu" className="focus:outline-none">
+                  <div
+                    id={userMenuId}
+                    role="menu"
+                    aria-orientation="vertical"
+                    onKeyDown={handleUserMenuKeyDown}
+                  >
                     {isAdmin ? (
                       <Link
                         to={APP_PATHS.admin}

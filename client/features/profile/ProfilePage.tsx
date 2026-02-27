@@ -6,10 +6,14 @@ import { useAuth } from '../auth/AuthContext';
 
 export function ProfilePage() {
   const { account, updateProfile } = useAuth();
-  const profile = account.profile;
+  const profile = account?.profile;
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -36,12 +40,20 @@ export function ProfilePage() {
     );
   }
 
-  const handleSave = () => {
-    updateProfile({
-      displayName: displayName.trim() || profile.username,
-      email: email.trim(),
-    });
-    setSaveStatus('Profile saved.');
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveStatus(null);
+    try {
+      await updateProfile({
+        displayName: displayName.trim() || profile.username,
+        email: email.trim(),
+      });
+      setSaveStatus({ type: 'success', message: 'Profile saved.' });
+    } catch {
+      setSaveStatus({ type: 'error', message: 'Failed to save profile.' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleChangePassword = async () => {
@@ -128,7 +140,7 @@ export function ProfilePage() {
               htmlFor="profile-role"
               className="mb-1.5 block text-sm text-muted"
             >
-              Profile
+              Role
             </label>
             <input
               id="profile-role"
@@ -188,17 +200,26 @@ export function ProfilePage() {
           >
             Change Password
           </button>
-          <button type="button" className="btn btn-accent" onClick={handleSave}>
-            Save
+          <button
+            type="button"
+            className="btn btn-accent"
+            onClick={() => {
+              void handleSave();
+            }}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
           </button>
         </div>
         {saveStatus && (
           <p
-            className="mt-3 text-sm text-success"
+            className={`mt-3 text-sm ${
+              saveStatus.type === 'success' ? 'text-success' : 'text-error'
+            }`}
             role="status"
             aria-live="polite"
           >
-            {saveStatus}
+            {saveStatus.message}
           </p>
         )}
       </div>
@@ -209,6 +230,9 @@ export function ProfilePage() {
         onClose={() => {
           setShowChangePassword(false);
           setPasswordStatus(null);
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
         }}
       >
         <h3
@@ -225,6 +249,7 @@ export function ProfilePage() {
             id="current-password"
             className="form-input"
             type="password"
+            autoComplete="current-password"
             placeholder="Current password"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
@@ -236,6 +261,7 @@ export function ProfilePage() {
             id="new-password"
             className="form-input"
             type="password"
+            autoComplete="new-password"
             placeholder="New password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
@@ -247,6 +273,7 @@ export function ProfilePage() {
             id="confirm-password"
             className="form-input"
             type="password"
+            autoComplete="new-password"
             placeholder="Confirm new password"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
@@ -270,6 +297,9 @@ export function ProfilePage() {
             onClick={() => {
               setShowChangePassword(false);
               setPasswordStatus(null);
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
             }}
           >
             Close

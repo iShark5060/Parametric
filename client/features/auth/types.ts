@@ -10,7 +10,7 @@ export interface RemoteAuthUser {
 }
 
 export interface RemoteAuthState {
-  authenticated?: boolean;
+  authenticated: boolean;
   has_game_access?: boolean;
   user?: RemoteAuthUser;
 }

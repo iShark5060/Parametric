@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { buildEditPath } from '../../app/paths';
 import { useBuildStorage } from '../../hooks/useBuildStorage';
 import {
   useLoadoutStorage,
@@ -58,6 +59,20 @@ export function BuildOverview() {
 
   const getBuildById = (id: string) => builds.find((b) => b.id === id);
 
+  const handleLinkBuildToLoadout = async (loadoutId: string) => {
+    if (!linkingBuild) return;
+
+    try {
+      await linkBuild(loadoutId, linkingBuild.id, linkingBuild.equipment_type);
+      setLinkingBuild(null);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to link build to loadout';
+      console.error('Failed to link build to loadout', error);
+      window.alert(message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-[2000px]">
@@ -91,7 +106,7 @@ export function BuildOverview() {
                     if (confirm(`Delete loadout "${loadout.name}"?`))
                       void deleteLoadout(loadout.id);
                   }}
-                  onNavigate={(buildId) => navigate(`/builder/${buildId}`)}
+                  onNavigate={(buildId) => navigate(buildEditPath(buildId))}
                   onUnlink={(slotType) => {
                     void unlinkBuild(loadout.id, slotType);
                   }}
@@ -124,7 +139,7 @@ export function BuildOverview() {
                   <BuildRow
                     key={build.id}
                     build={build}
-                    onClick={() => navigate(`/builder/${build.id}`)}
+                    onClick={() => navigate(buildEditPath(build.id))}
                     onDelete={() => {
                       if (confirm(`Delete "${build.name}"?`))
                         void deleteBuild(build.id);
@@ -210,12 +225,7 @@ export function BuildOverview() {
                 <button
                   key={loadout.id}
                   onClick={() => {
-                    void linkBuild(
-                      loadout.id,
-                      linkingBuild.id,
-                      linkingBuild.equipment_type,
-                    );
-                    setLinkingBuild(null);
+                    void handleLinkBuildToLoadout(loadout.id);
                   }}
                   className="flex w-full items-center justify-between rounded-lg border border-glass-border px-3 py-2 text-left text-sm text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
                 >

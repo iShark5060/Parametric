@@ -91,7 +91,7 @@ export function EquipmentGridModal({
       ariaLabelledBy="equipment-grid-title"
     >
       <div
-        style={{ width: '90vw', maxHeight: '85vh' }}
+        style={{ width: '100%', maxWidth: '90vw', maxHeight: '85vh' }}
         className="overflow-y-auto"
       >
         <div className="mb-4 flex items-center justify-between">

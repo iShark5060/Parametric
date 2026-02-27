@@ -210,15 +210,18 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
-    const message = (err.message || '').toLowerCase();
-    if (message.includes('csrf')) {
+    const message = err.message || '';
+    const isCsrfError =
+      err.name === 'CsrfError' ||
+      (err.constructor && err.constructor.name === 'CsrfError');
+    if (isCsrfError) {
       res.setHeader('X-CSRF-Error', '1');
       res
         .status(403)
         .json({ error: 'Invalid CSRF token', code: 'CSRF_INVALID' });
       return;
     }
-    console.error('[Error]', err.stack ?? err.message);
+    console.error('[Error]', err.stack ?? message);
     res.status(500).json({ error: 'Internal server error' });
   },
 );

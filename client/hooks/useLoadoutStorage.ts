@@ -5,6 +5,7 @@ import { apiFetch } from '../utils/api';
 const LEGACY_STORAGE_KEY = 'parametric_loadouts';
 const MIGRATED_KEY = 'parametric_loadouts_migrated_v1';
 const MIGRATION_MAP_KEY = 'parametric_build_id_map_v1';
+const MIGRATION_FAILURES_KEY = 'parametric_loadouts_migration_failures_v1';
 
 export interface LoadoutBuild {
   build_id: string;
@@ -40,16 +41,49 @@ function readLegacyLoadouts(): Loadout[] {
   }
 }
 
+async function getApiErrorDetails(response: Response): Promise<string> {
+  const statusText = `${response.status} ${response.statusText}`.trim();
+  try {
+    const body = (await response.clone().json()) as {
+      error?: unknown;
+      message?: unknown;
+    };
+    if (typeof body.error === 'string' && body.error.length > 0) {
+      return `${statusText}: ${body.error}`;
+    }
+    if (typeof body.message === 'string' && body.message.length > 0) {
+      return `${statusText}: ${body.message}`;
+    }
+  } catch {
+    // Fall back to text if response is not JSON.
+  }
+
+  try {
+    const text = await response.clone().text();
+    if (text.trim().length > 0) {
+      return `${statusText}: ${text.trim()}`;
+    }
+  } catch {
+    // Ignore text parse errors and fall through to status only.
+  }
+
+  return statusText || 'Unknown API error';
+}
+
 export function useLoadoutStorage() {
   const [loadouts, setLoadouts] = useState<Loadout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadoutError, setLoadoutError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<Loadout[]> => {
     try {
+      setLoadoutError(null);
       const response = await apiFetch('/api/loadouts');
       if (!response.ok) {
+        const details = await getApiErrorDetails(response);
         setLoadouts([]);
-        return;
+        setLoadoutError(details);
+        return [];
       }
       const body = (await response.json()) as {
         loadouts?: Array<Record<string, unknown>>;
@@ -67,7 +101,14 @@ export function useLoadoutStorage() {
         created_at: String(row.created_at ?? new Date().toISOString()),
         updated_at: String(row.updated_at ?? new Date().toISOString()),
       })) as Loadout[];
-      setLoadouts(mapped.filter((loadout) => loadout.id.length > 0));
+      const filtered = mapped.filter((loadout) => loadout.id.length > 0);
+      setLoadouts(filtered);
+      return filtered;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setLoadouts([]);
+      setLoadoutError(message);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -87,6 +128,13 @@ export function useLoadoutStorage() {
       const idMap = idMapRaw
         ? (JSON.parse(idMapRaw) as Record<string, string>)
         : {};
+      const failures: Array<{
+        type: 'loadout' | 'build';
+        loadoutId: string;
+        buildId?: string;
+        slotType?: string;
+        error: string;
+      }> = [];
       for (const loadout of legacyLoadouts) {
         try {
           const createRes = await apiFetch('/api/loadouts', {
@@ -94,6 +142,14 @@ export function useLoadoutStorage() {
             body: JSON.stringify({ name: loadout.name }),
           });
           if (!createRes.ok) {
+            const details = await getApiErrorDetails(createRes);
+            const error = `Failed to migrate legacy loadout ${loadout.id}: ${details}`;
+            console.error(error);
+            failures.push({
+              type: 'loadout',
+              loadoutId: loadout.id,
+              error,
+            });
             continue;
           }
           const createBody = (await createRes.json()) as {
@@ -102,25 +158,66 @@ export function useLoadoutStorage() {
           const newLoadoutId =
             createBody.id !== undefined ? String(createBody.id) : null;
           if (!newLoadoutId) {
+            const error = `Failed to migrate legacy loadout ${loadout.id}: missing new loadout id`;
+            console.error(error);
+            failures.push({
+              type: 'loadout',
+              loadoutId: loadout.id,
+              error,
+            });
             continue;
           }
           for (const buildLink of loadout.builds) {
             const mappedBuildId = idMap[buildLink.build_id];
             if (!mappedBuildId) {
+              const error = `Failed to migrate build ${buildLink.build_id} for loadout ${loadout.id}: missing build id mapping`;
+              console.error(error);
+              failures.push({
+                type: 'build',
+                loadoutId: loadout.id,
+                buildId: buildLink.build_id,
+                slotType: buildLink.slot_type,
+                error,
+              });
               continue;
             }
-            await apiFetch(`/api/loadouts/${newLoadoutId}/builds`, {
+            const linkRes = await apiFetch(`/api/loadouts/${newLoadoutId}/builds`, {
               method: 'POST',
               body: JSON.stringify({
                 build_id: mappedBuildId,
                 slot_type: buildLink.slot_type,
               }),
             });
+            if (!linkRes.ok) {
+              const details = await getApiErrorDetails(linkRes);
+              const error = `Failed to migrate build ${buildLink.build_id} for loadout ${loadout.id}: ${details}`;
+              console.error(error);
+              failures.push({
+                type: 'build',
+                loadoutId: loadout.id,
+                buildId: buildLink.build_id,
+                slotType: buildLink.slot_type,
+                error,
+              });
+            }
           }
-        } catch {
-          // keep migrating best-effort
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          const details = `Failed to migrate legacy loadout ${loadout.id}: ${message}`;
+          console.error(details, error);
+          failures.push({
+            type: 'loadout',
+            loadoutId: loadout.id,
+            error: details,
+          });
         }
       }
+      if (failures.length > 0) {
+        localStorage.setItem(MIGRATION_FAILURES_KEY, JSON.stringify(failures));
+        return;
+      }
+      localStorage.removeItem(MIGRATION_FAILURES_KEY);
       localStorage.setItem(MIGRATED_KEY, '1');
     }
 
@@ -140,22 +237,32 @@ export function useLoadoutStorage() {
         throw new Error('Failed to create loadout');
       }
       const body = (await response.json()) as { id?: string | number };
+      const createdId = String(body.id ?? crypto.randomUUID());
       const loadout: Loadout = {
-        id: String(body.id ?? crypto.randomUUID()),
+        id: createdId,
         name,
         builds: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      await refresh();
-      return loadout;
+      const refreshedLoadouts = await refresh();
+      return (
+        refreshedLoadouts.find((candidate) => candidate.id === createdId) ??
+        loadout
+      );
     },
     [refresh],
   );
 
   const deleteLoadout = useCallback(
     async (id: string) => {
-      await apiFetch(`/api/loadouts/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/loadouts/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const details = await getApiErrorDetails(response);
+        throw new Error(`Failed to delete loadout ${id}: ${details}`);
+      }
       await refresh();
     },
     [refresh],
@@ -163,13 +270,28 @@ export function useLoadoutStorage() {
 
   const linkBuild = useCallback(
     async (loadoutId: string, buildId: string, slotType: string) => {
-      await apiFetch(`/api/loadouts/${loadoutId}/builds`, {
-        method: 'POST',
-        body: JSON.stringify({
-          build_id: buildId,
-          slot_type: slotType,
-        }),
-      });
+      try {
+        const response = await apiFetch(`/api/loadouts/${loadoutId}/builds`, {
+          method: 'POST',
+          body: JSON.stringify({
+            build_id: buildId,
+            slot_type: slotType,
+          }),
+        });
+        if (!response.ok) {
+          const details = await getApiErrorDetails(response);
+          throw new Error(
+            `Failed to link build ${buildId} to loadout ${loadoutId} (${slotType}): ${details}`,
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(
+          `Failed to link build ${buildId} to loadout ${loadoutId} (${slotType})`,
+        );
+      }
       await refresh();
     },
     [refresh],
@@ -177,9 +299,15 @@ export function useLoadoutStorage() {
 
   const unlinkBuild = useCallback(
     async (loadoutId: string, slotType: string) => {
-      await apiFetch(`/api/loadouts/${loadoutId}/builds/${slotType}`, {
+      const response = await apiFetch(`/api/loadouts/${loadoutId}/builds/${slotType}`, {
         method: 'DELETE',
       });
+      if (!response.ok) {
+        const details = await getApiErrorDetails(response);
+        throw new Error(
+          `Failed to unlink build from loadout ${loadoutId} (${slotType}): ${details}`,
+        );
+      }
       await refresh();
     },
     [refresh],
@@ -195,6 +323,7 @@ export function useLoadoutStorage() {
   return {
     loadouts,
     loading,
+    error: loadoutError,
     createLoadout,
     deleteLoadout,
     linkBuild,

@@ -1,10 +1,50 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { buildCentralAuthLoginUrl } from '../../utils/api';
 
 export function LoginPage() {
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+
   useEffect(() => {
-    window.location.href = buildCentralAuthLoginUrl('/builder');
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      const nextAuthUrl = buildCentralAuthLoginUrl('/builder');
+      setAuthUrl(nextAuthUrl);
+
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(nextAuthUrl, window.location.origin);
+      } catch {
+        setShowFallback(true);
+        return;
+      }
+
+      const isHttpUrl =
+        parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      if (!isHttpUrl) {
+        setShowFallback(true);
+        return;
+      }
+
+      // If navigation is blocked or interrupted, provide manual continuation.
+      fallbackTimer = setTimeout(() => setShowFallback(true), 1500);
+
+      try {
+        window.location.href = nextAuthUrl;
+      } catch {
+        setShowFallback(true);
+      }
+    } catch {
+      setShowFallback(true);
+    }
+
+    return () => {
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+      }
+    };
   }, []);
 
   return (
@@ -24,6 +64,15 @@ export function LoginPage() {
           >
             Redirecting to shared authentication...
           </p>
+          {showFallback && authUrl ? (
+            <p className="mt-4 text-center text-sm text-muted">
+              If you are not redirected,{' '}
+              <a className="underline" href={authUrl}>
+                continue to sign in
+              </a>
+              .
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

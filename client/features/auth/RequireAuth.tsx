@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { useAuth } from './AuthContext';
 import { buildCentralAuthLoginUrl } from '../../utils/api';
@@ -15,7 +15,7 @@ function CentralAuthRedirect({ message }: { message: string }) {
   );
 }
 
-export function RequireAuth({ children }: { children: ReactElement }) {
+export function RequireAuth({ children }: { children: ReactNode }) {
   const { status, logout } = useAuth();
 
   if (status === 'loading') {

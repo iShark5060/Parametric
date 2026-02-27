@@ -4,7 +4,6 @@ const PROFILE_STORAGE_KEY = 'parametric.profile.v1';
 
 interface StoredProfile {
   displayName: string;
-  email: string;
 }
 
 function readProfileStorage(): Record<string, StoredProfile> {
@@ -20,7 +19,27 @@ function readProfileStorage(): Record<string, StoredProfile> {
     if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-    return parsed as Record<string, StoredProfile>;
+    const normalized: Record<string, StoredProfile> = {};
+    let shouldRewrite = false;
+    for (const [userId, value] of Object.entries(parsed)) {
+      if (!value || typeof value !== 'object') {
+        shouldRewrite = true;
+        continue;
+      }
+      const maybeProfile = value as { displayName?: unknown; email?: unknown };
+      if (typeof maybeProfile.displayName !== 'string') {
+        shouldRewrite = true;
+        continue;
+      }
+      normalized[userId] = { displayName: maybeProfile.displayName };
+      if ('email' in maybeProfile) {
+        shouldRewrite = true;
+      }
+    }
+    if (shouldRewrite) {
+      writeProfileStorage(normalized);
+    }
+    return normalized;
   } catch {
     return {};
   }
@@ -30,7 +49,11 @@ function writeProfileStorage(profiles: Record<string, StoredProfile>): void {
   if (typeof window === 'undefined') {
     return;
   }
-  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  try {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  } catch {
+    // Ignore localStorage write failures (quota/privacy mode).
+  }
 }
 
 export function getStoredProfile(userId: number): StoredProfile | undefined {
@@ -45,10 +68,12 @@ export function mergeStoredProfile(
     ...profile,
     ...updates,
   };
+  if (nextProfile.userId === null || nextProfile.userId === undefined) {
+    return nextProfile;
+  }
   const storage = readProfileStorage();
   storage[String(nextProfile.userId)] = {
     displayName: nextProfile.displayName,
-    email: nextProfile.email,
   };
   writeProfileStorage(storage);
   return nextProfile;

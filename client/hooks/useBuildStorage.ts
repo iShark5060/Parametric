@@ -20,12 +20,12 @@ export function useBuildStorage() {
   const [builds, setBuilds] = useState<StoredBuild[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<StoredBuild[]> => {
     try {
       const response = await apiFetch('/api/builds');
       if (!response.ok) {
         setBuilds([]);
-        return;
+        return [];
       }
       const body = (await response.json()) as {
         builds?: Array<Record<string, unknown>>;
@@ -64,6 +64,11 @@ export function useBuildStorage() {
         })
         .filter((build) => build.id.length > 0);
       setBuilds(mapped);
+      return mapped;
+    } catch (error) {
+      console.error('Failed to refresh builds', error);
+      setBuilds([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -140,12 +145,17 @@ export function useBuildStorage() {
         throw new Error('Failed to save build');
       }
       let savedId = config.id;
-      if (!isUpdate) {
-        const body = (await response.json()) as { id?: string | number };
+      let body: { id?: string | number } | null = null;
+      try {
+        body = (await response.json()) as { id?: string | number };
+      } catch {
+        body = null;
+      }
+      if (!isUpdate && body) {
         savedId = body.id !== undefined ? String(body.id) : undefined;
       }
-      await refresh();
-      const saved = builds.find((build) => build.id === savedId);
+      const refreshedBuilds = await refresh();
+      const saved = refreshedBuilds.find((build) => build.id === savedId);
       if (saved) {
         return saved;
       }
@@ -156,12 +166,24 @@ export function useBuildStorage() {
         updated_at: new Date().toISOString(),
       };
     },
-    [builds, refresh],
+    [refresh],
   );
 
   const deleteBuild = useCallback(
     async (id: string) => {
-      await apiFetch(`/api/builds/${id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/api/builds/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        let message = 'Failed to delete build';
+        try {
+          const body = (await response.json()) as { error?: string };
+          if (typeof body.error === 'string' && body.error.trim().length > 0) {
+            message = body.error;
+          }
+        } catch {
+          // Keep default error message when no JSON body is available.
+        }
+        throw new Error(message);
+      }
       await refresh();
     },
     [refresh],

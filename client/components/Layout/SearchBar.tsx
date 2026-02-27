@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { buildNewPath } from '../../app/paths';
 import { apiFetch } from '../../utils/api';
 
 interface SearchResult {
@@ -135,9 +136,7 @@ export function SearchBar() {
 
   const handleSelect = (result: SearchResult) => {
     if (result.equipment_type) {
-      navigate(
-        `/builder/new/${result.equipment_type}/${encodeURIComponent(result.unique_name)}`,
-      );
+      navigate(buildNewPath(result.equipment_type, result.unique_name));
     }
     setQuery('');
     setOpen(false);
