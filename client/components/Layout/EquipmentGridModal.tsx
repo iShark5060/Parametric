@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 
+import { Modal } from '../../components/ui/Modal';
 import {
   EQUIPMENT_TYPE_LABELS,
   EQUIPMENT_TYPE_ORDER,
   type EquipmentType,
 } from '../../types/warframe';
+import { apiFetch } from '../../utils/api';
 
 interface EquipmentItem {
   unique_name: string;
@@ -50,7 +52,7 @@ export function EquipmentGridModal({
     }
 
     setLoading(true);
-    void fetch(url)
+    void apiFetch(url)
       .then((r) => {
         return r.json();
       })
@@ -82,19 +84,28 @@ export function EquipmentGridModal({
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <Modal
+      open
+      onClose={onClose}
+      className="glass-modal-surface max-w-4xl p-6 shadow-2xl"
+      ariaLabelledBy="equipment-grid-title"
+    >
       <div
-        className="glass-modal-surface max-w-4xl overflow-y-auto p-6 shadow-2xl"
-        style={{ width: '90%', maxHeight: '85vh' }}
-        onClick={(e) => e.stopPropagation()}
+        style={{ width: '90vw', maxHeight: '85vh' }}
+        className="overflow-y-auto"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2
+            id="equipment-grid-title"
+            className="text-lg font-semibold text-foreground"
+          >
             Select Equipment
           </h2>
           <button
+            type="button"
             className="text-xl text-muted hover:text-foreground"
             onClick={onClose}
+            aria-label="Close equipment picker"
           >
             &times;
           </button>
@@ -104,6 +115,7 @@ export function EquipmentGridModal({
           {EQUIPMENT_TYPE_ORDER.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => {
                 setActiveTab(t);
                 setSearch('');
@@ -146,8 +158,10 @@ export function EquipmentGridModal({
               {filtered.map((item) => (
                 <button
                   key={item.unique_name}
+                  type="button"
                   onClick={() => onSelect(activeTab, item.unique_name)}
                   className="group relative overflow-hidden rounded-lg border border-glass-border p-0 text-center transition-all hover:border-glass-border-hover hover:bg-glass-hover"
+                  aria-label={`Select ${item.name}`}
                 >
                   <div className="relative flex h-20 w-full items-center justify-center overflow-hidden bg-glass">
                     {item.image_path ? (
@@ -172,6 +186,6 @@ export function EquipmentGridModal({
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

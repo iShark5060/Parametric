@@ -1,30 +1,36 @@
-import { useState, useCallback } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { EquipmentGridModal } from './EquipmentGridModal';
 import { SearchBar } from './SearchBar';
+import { APP_DISPLAY_NAME, LEGAL_ENTITY_NAME } from '../../app/config';
+import { APP_PATHS } from '../../app/paths';
 import bgArt from '../../assets/background.txt?raw';
 import feathers from '../../assets/feathers.png';
+import { Menu } from '../../components/ui/Menu';
 import { useCompare } from '../../context/CompareContext';
 import { useTheme } from '../../context/ThemeContext';
-import { apiFetch, clearCsrfToken } from '../../utils/api';
+import { useAuth } from '../../features/auth/AuthContext';
 import { CompareBar } from '../Compare/CompareBar';
 
 export function Layout() {
   const [showAddBuild, setShowAddBuild] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordStatus, setPasswordStatus] = useState<{
-    type: 'ok' | 'err';
-    message: string;
-  } | null>(null);
-  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const userMenuId = 'parametric-user-menu';
   const navigate = useNavigate();
   const { snapshots } = useCompare();
   const { mode, toggleMode } = useTheme();
+  const { account, logout } = useAuth();
   const compareBarVisible = snapshots.length > 0;
+  const currentYear = new Date().getFullYear();
 
   const handleEquipmentSelect = useCallback(
     (equipmentType: string, uniqueName: string) => {
@@ -37,101 +43,122 @@ export function Layout() {
   );
 
   const handleLogout = useCallback(async () => {
-    try {
-      await apiFetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // If logout request fails, still clear local CSRF and continue to login.
-    } finally {
-      clearCsrfToken();
-      window.location.href = '/login';
-    }
-  }, []);
+    await logout();
+  }, [logout]);
 
-  const handleChangePassword = useCallback(async () => {
-    const current = currentPassword;
-    const next = newPassword;
-    const confirm = confirmPassword;
-    if (!current || !next) {
-      setPasswordStatus({
-        type: 'err',
-        message: 'Current password and new password are required.',
-      });
-      return;
-    }
-    if (next.length < 8) {
-      setPasswordStatus({
-        type: 'err',
-        message: 'New password must be at least 8 characters.',
-      });
-      return;
-    }
-    if (next !== confirm) {
-      setPasswordStatus({ type: 'err', message: 'Passwords do not match.' });
-      return;
-    }
+  useEffect(() => {
+    if (!userMenuOpen) return undefined;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [userMenuOpen]);
 
-    setPasswordSaving(true);
-    try {
-      const response = await apiFetch('/api/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify({
-          current_password: current,
-          new_password: next,
-        }),
-      });
-      const body = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      if (!response.ok) {
-        setPasswordStatus({
-          type: 'err',
-          message: body?.error || 'Failed to change password.',
-        });
+  useEffect(() => {
+    const container = menuRef.current;
+    if (!container) return;
+    const items = container.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    if (userMenuOpen && items.length > 0) {
+      items[0].focus();
+    }
+    if (!userMenuOpen) {
+      menuButtonRef.current?.focus();
+    }
+  }, [userMenuOpen]);
+
+  const handleUserMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent) => {
+      if (!userMenuOpen || !menuRef.current) return;
+      const items = Array.from(
+        menuRef.current.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+      );
+      if (items.length === 0) return;
+      const activeIndex = items.findIndex(
+        (item) => item === document.activeElement,
+      );
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setUserMenuOpen(false);
         return;
       }
-      setPasswordStatus({ type: 'ok', message: 'Password updated.' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch {
-      setPasswordStatus({
-        type: 'err',
-        message: 'Failed to change password.',
-      });
-    } finally {
-      setPasswordSaving(false);
-    }
-  }, [confirmPassword, currentPassword, newPassword]);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        const next = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
+        items[next].focus();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        const next =
+          activeIndex < 0
+            ? items.length - 1
+            : (activeIndex - 1 + items.length) % items.length;
+        items[next].focus();
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        first.focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        last.focus();
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          const next = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+          items[next].focus();
+        } else {
+          const next = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
+          items[next].focus();
+        }
+      }
+    },
+    [userMenuOpen],
+  );
+
+  const profile = account.profile;
+  const isLoggedIn = account.isAuthenticated && profile !== null;
+  const isAdmin = profile?.isAdmin === true;
+  const avatarLetter = (profile?.displayName || profile?.username || 'U')
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
     <div className="flex min-h-screen flex-col">
       <div className="bg-art" aria-hidden="true">
         {bgArt}
       </div>
-      <header className="relative z-10 px-6 py-4">
-        <div className="mx-auto flex max-w-[2000px] items-center justify-between gap-4">
-          <h1 className="brand-lockup">
+      <header className="relative z-30 h-[100px] px-6">
+        <div className="mx-auto grid h-full w-full max-w-[2000px] grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <Link to={APP_PATHS.home} className="brand-lockup w-fit">
             <img
               src={feathers}
               alt="Dark Avian Labs feather mark"
               className="brand-lockup__icon"
             />
-            <span className="brand-lockup__title">Parametric</span>
-          </h1>
+            <span className="brand-lockup__title">{APP_DISPLAY_NAME}</span>
+          </Link>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="btn btn-accent text-sm"
-              onClick={() => setShowAddBuild(true)}
-            >
-              + Add Build
-            </button>
+          <div className="justify-self-center">
+            {isLoggedIn ? <SearchBar /> : null}
+          </div>
 
-            <SearchBar />
-
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <nav className="flex gap-2">
               <NavLink
-                to="/builder"
+                to={APP_PATHS.buildOverview}
                 end
                 className={({ isActive }) =>
                   `inline-flex items-center rounded-2xl border px-4 py-2 text-sm transition-all ${
@@ -143,19 +170,28 @@ export function Layout() {
               >
                 Builds
               </NavLink>
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `inline-flex items-center rounded-2xl border px-4 py-2 text-sm transition-all ${
-                    isActive
-                      ? 'border-accent bg-accent-weak text-accent'
-                      : 'border-glass-border text-muted hover:border-glass-border-hover hover:text-foreground'
-                  }`
-                }
-              >
-                Admin
-              </NavLink>
+              {isAdmin ? (
+                <NavLink
+                  to={APP_PATHS.admin}
+                  className={({ isActive }) =>
+                    `inline-flex items-center rounded-2xl border px-4 py-2 text-sm transition-all ${
+                      isActive
+                        ? 'border-accent bg-accent-weak text-accent'
+                        : 'border-glass-border text-muted hover:border-glass-border-hover hover:text-foreground'
+                    }`
+                  }
+                >
+                  Admin
+                </NavLink>
+              ) : null}
             </nav>
+            <button
+              className="btn btn-accent text-sm"
+              type="button"
+              onClick={() => setShowAddBuild(true)}
+            >
+              + Add Build
+            </button>
 
             <button
               type="button"
@@ -166,23 +202,67 @@ export function Layout() {
             >
               <span aria-hidden="true">{mode === 'dark' ? '☀' : '☾'}</span>
             </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm"
-              onClick={() => {
-                setShowChangePassword(true);
-                setPasswordStatus(null);
-              }}
-            >
-              Change Password
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary text-sm"
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                className="icon-toggle-btn profile-avatar-btn"
+                ref={menuButtonRef}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+                aria-controls={userMenuOpen ? userMenuId : undefined}
+                aria-label="Open user menu"
+                onClick={() => setUserMenuOpen((prev) => !prev)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === 'ArrowDown' ||
+                    event.key === 'Enter' ||
+                    event.key === ' '
+                  ) {
+                    event.preventDefault();
+                    setUserMenuOpen(true);
+                  }
+                }}
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
+                  {avatarLetter}
+                </span>
+              </button>
+              {userMenuOpen && (
+                <Menu className="focus:outline-none">
+                  <div id={userMenuId} onKeyDown={handleUserMenuKeyDown}>
+                    {isAdmin ? (
+                      <Link
+                        to={APP_PATHS.admin}
+                        className="user-menu-item"
+                        role="menuitem"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        Admin
+                      </Link>
+                    ) : null}
+                    <Link
+                      to={APP_PATHS.profile}
+                      className="user-menu-item"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      type="button"
+                      className="user-menu-item text-left"
+                      role="menuitem"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        void handleLogout();
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </Menu>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -200,74 +280,11 @@ export function Layout() {
           onClose={() => setShowAddBuild(false)}
         />
       )}
-
-      {showChangePassword && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowChangePassword(false);
-            setPasswordStatus(null);
-          }}
-        >
-          <div className="modal max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-3 text-lg font-semibold text-foreground">
-              Change Password
-            </h3>
-            <div className="space-y-3">
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Current password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                className="form-input"
-                placeholder="New password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                className="form-input"
-                placeholder="Confirm new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            {passwordStatus && (
-              <p
-                className={`mt-3 text-sm ${
-                  passwordStatus.type === 'ok' ? 'text-success' : 'text-danger'
-                }`}
-              >
-                {passwordStatus.message}
-              </p>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary text-sm"
-                onClick={() => {
-                  setShowChangePassword(false);
-                  setPasswordStatus(null);
-                }}
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                className="btn btn-accent text-sm"
-                onClick={handleChangePassword}
-                disabled={passwordSaving}
-              >
-                {passwordSaving ? 'Saving...' : 'Update Password'}
-              </button>
-            </div>
-          </div>
+      <footer className="relative z-10 flex h-[50px] items-center justify-center px-6">
+        <div className="mx-auto w-full max-w-[2000px] text-center text-sm text-muted">
+          ©{currentYear} {LEGAL_ENTITY_NAME}
         </div>
-      )}
+      </footer>
     </div>
   );
 }

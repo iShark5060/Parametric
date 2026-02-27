@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 
 import { requireAdmin } from '../auth/middleware.js';
 import { getDb } from '../db/connection.js';
@@ -79,6 +80,37 @@ apiRouter.get('/companions', (_req: Request, res: Response) => {
 
 const MOD_JUNK_SEGMENTS = ['/Beginner/', '/Intermediate/', '/Nemesis/'];
 const MOD_JUNK_SUFFIXES = ['SubMod'];
+
+const shardBuffCreateSchema = z.object({
+  shard_type_id: z.string().trim().min(1),
+  description: z.string().trim().min(1).max(200),
+  base_value: z.number().finite(),
+  tauforged_value: z.number().finite(),
+  value_format: z.enum(['%', '+flat', '/s', 'proc']).default('%'),
+  sort_order: z.number().int().min(0).max(999).default(0),
+});
+
+const shardBuffUpdateSchema = z.object({
+  description: z.string().trim().min(1).max(200),
+  base_value: z.number().finite(),
+  tauforged_value: z.number().finite(),
+  value_format: z.enum(['%', '+flat', '/s', 'proc']),
+  sort_order: z.number().int().min(0).max(999).default(0),
+});
+
+function parseNumericId(raw: string | string[] | undefined): number | null {
+  if (Array.isArray(raw)) {
+    return parseNumericId(raw[0]);
+  }
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
 
 apiRouter.get('/mods', (req: Request, res: Response) => {
   try {
@@ -346,6 +378,17 @@ apiRouter.post(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      const parsed = shardBuffCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res
+          .status(400)
+          .json({
+            error:
+              parsed.error.issues[0]?.message ||
+              'Invalid archon shard buff payload',
+          });
+        return;
+      }
       const {
         shard_type_id,
         description,
@@ -353,7 +396,7 @@ apiRouter.post(
         tauforged_value,
         value_format,
         sort_order,
-      } = req.body;
+      } = parsed.data;
       const result = db
         .prepare(
           'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
@@ -363,8 +406,8 @@ apiRouter.post(
           description,
           base_value,
           tauforged_value,
-          value_format || '%',
-          sort_order || 0,
+          value_format,
+          sort_order,
         );
       res.json({ success: true, id: result.lastInsertRowid });
     } catch (err) {
@@ -380,13 +423,29 @@ apiRouter.put(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      const buffId = parseNumericId(req.params.id);
+      if (buffId === null) {
+        res.status(400).json({ error: 'Invalid buff id' });
+        return;
+      }
+      const parsed = shardBuffUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res
+          .status(400)
+          .json({
+            error:
+              parsed.error.issues[0]?.message ||
+              'Invalid archon shard buff payload',
+          });
+        return;
+      }
       const {
         description,
         base_value,
         tauforged_value,
         value_format,
         sort_order,
-      } = req.body;
+      } = parsed.data;
       db.prepare(
         'UPDATE archon_shard_buffs SET description = ?, base_value = ?, tauforged_value = ?, value_format = ?, sort_order = ? WHERE id = ?',
       ).run(
@@ -395,7 +454,7 @@ apiRouter.put(
         tauforged_value,
         value_format,
         sort_order,
-        req.params.id,
+        buffId,
       );
       res.json({ success: true });
     } catch (err) {
@@ -411,9 +470,12 @@ apiRouter.delete(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
-      db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(
-        req.params.id,
-      );
+      const buffId = parseNumericId(req.params.id);
+      if (buffId === null) {
+        res.status(400).json({ error: 'Invalid buff id' });
+        return;
+      }
+      db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(buffId);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -506,10 +568,36 @@ apiRouter.delete('/loadouts/:id', (req: Request, res: Response) => {
 apiRouter.post('/loadouts/:id/builds', (req: Request, res: Response) => {
   try {
     const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const loadoutId = parseNumericId(req.params.id);
+    if (loadoutId === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
     const { build_id, slot_type } = req.body;
+    const buildId = Number.parseInt(String(build_id), 10);
+    if (
+      !Number.isFinite(buildId) ||
+      buildId <= 0 ||
+      typeof slot_type !== 'string'
+    ) {
+      res.status(400).json({ error: 'Invalid loadout build payload' });
+      return;
+    }
     db.prepare(
-      'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) VALUES (?, ?, ?)',
-    ).run(req.params.id, build_id, slot_type);
+      'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM loadouts WHERE id = ? AND user_id = ?) AND EXISTS (SELECT 1 FROM builds WHERE id = ? AND user_id = ?)',
+    ).run(
+      loadoutId,
+      buildId,
+      slot_type,
+      loadoutId,
+      req.session.user_id,
+      buildId,
+      req.session.user_id,
+    );
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -522,9 +610,18 @@ apiRouter.delete(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      if (!req.session.user_id) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const loadoutId = parseNumericId(req.params.id);
+      if (loadoutId === null) {
+        res.status(400).json({ error: 'Invalid loadout id' });
+        return;
+      }
       db.prepare(
-        'DELETE FROM loadout_builds WHERE loadout_id = ? AND slot_type = ?',
-      ).run(req.params.id, req.params.slotType);
+        'DELETE FROM loadout_builds WHERE loadout_id = ? AND slot_type = ? AND EXISTS (SELECT 1 FROM loadouts WHERE id = ? AND user_id = ?)',
+      ).run(loadoutId, req.params.slotType, loadoutId, req.session.user_id);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -545,8 +642,26 @@ apiRouter.get('/builds', (req: Request, res: Response) => {
       .prepare(
         'SELECT * FROM builds WHERE user_id = ? ORDER BY updated_at DESC',
       )
-      .all(req.session.user_id);
-    res.json({ builds: rows });
+      .all(req.session.user_id) as Array<Record<string, unknown>>;
+
+    const builds = rows.map((row) => {
+      const parsedConfig =
+        typeof row.mod_config === 'string'
+          ? (() => {
+              try {
+                return JSON.parse(row.mod_config);
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+      return {
+        ...row,
+        mod_config: parsedConfig,
+      };
+    });
+
+    res.json({ builds });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: msg });
@@ -563,6 +678,15 @@ apiRouter.post('/builds', (req: Request, res: Response) => {
 
     const { name, equipment_type, equipment_unique_name, mod_config } =
       req.body;
+    if (
+      typeof name !== 'string' ||
+      typeof equipment_type !== 'string' ||
+      typeof equipment_unique_name !== 'string' ||
+      !mod_config
+    ) {
+      res.status(400).json({ error: 'Invalid build payload' });
+      return;
+    }
 
     const result = db
       .prepare(
@@ -592,8 +716,16 @@ apiRouter.put('/builds/:id', (req: Request, res: Response) => {
       return;
     }
 
-    const id = String(req.params.id);
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
     const { name, mod_config } = req.body;
+    if (typeof name !== 'string' || !mod_config) {
+      res.status(400).json({ error: 'Invalid build payload' });
+      return;
+    }
 
     db.prepare(
       `UPDATE builds SET name = ?, mod_config = ?, updated_at = datetime('now')
@@ -615,7 +747,11 @@ apiRouter.delete('/builds/:id', (req: Request, res: Response) => {
       return;
     }
 
-    const id = String(req.params.id);
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
     db.prepare('DELETE FROM builds WHERE id = ? AND user_id = ?').run(
       id,
       req.session.user_id,

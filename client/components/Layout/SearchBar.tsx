@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { apiFetch } from '../../utils/api';
+
 interface SearchResult {
   category: string;
   name: string;
@@ -51,9 +53,9 @@ export function SearchBar() {
       setLoading(true);
       try {
         const [wfRes, wpRes, compRes] = await Promise.all([
-          fetch(`/api/warframes`).then((r) => r.json()),
-          fetch(`/api/weapons`).then((r) => r.json()),
-          fetch(`/api/companions`).then((r) => r.json()),
+          apiFetch(`/api/warframes`).then((r) => r.json()),
+          apiFetch(`/api/weapons`).then((r) => r.json()),
+          apiFetch(`/api/companions`).then((r) => r.json()),
         ]);
 
         const lowerTerm = term.toLowerCase();

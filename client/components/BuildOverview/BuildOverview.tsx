@@ -51,7 +51,7 @@ export function BuildOverview() {
 
   const handleCreateLoadout = () => {
     if (!newLoadoutName.trim()) return;
-    createLoadout(newLoadoutName.trim());
+    void createLoadout(newLoadoutName.trim());
     setNewLoadoutName('');
     setShowNewLoadout(false);
   };
@@ -89,10 +89,12 @@ export function BuildOverview() {
                   getBuildById={getBuildById}
                   onDelete={() => {
                     if (confirm(`Delete loadout "${loadout.name}"?`))
-                      deleteLoadout(loadout.id);
+                      void deleteLoadout(loadout.id);
                   }}
                   onNavigate={(buildId) => navigate(`/builder/${buildId}`)}
-                  onUnlink={(slotType) => unlinkBuild(loadout.id, slotType)}
+                  onUnlink={(slotType) => {
+                    void unlinkBuild(loadout.id, slotType);
+                  }}
                 />
               ))}
             </div>
@@ -125,7 +127,7 @@ export function BuildOverview() {
                     onClick={() => navigate(`/builder/${build.id}`)}
                     onDelete={() => {
                       if (confirm(`Delete "${build.name}"?`))
-                        deleteBuild(build.id);
+                        void deleteBuild(build.id);
                     }}
                     onLink={() => setLinkingBuild(build)}
                     hasLoadouts={loadouts.length > 0}
@@ -208,7 +210,7 @@ export function BuildOverview() {
                 <button
                   key={loadout.id}
                   onClick={() => {
-                    linkBuild(
+                    void linkBuild(
                       loadout.id,
                       linkingBuild.id,
                       linkingBuild.equipment_type,

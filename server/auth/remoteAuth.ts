@@ -2,8 +2,6 @@ import type { Request, Response } from 'express';
 
 import { GAME_ID } from '../config.js';
 
-const LOCAL_AUTH_SERVICE_FALLBACK = 'http://localhost:3010';
-
 function parseBaseUrl(
   rawValue: string | undefined,
   envName: string,
@@ -25,30 +23,18 @@ function parseBaseUrl(
   }
 }
 
-const parsedFallbackAuthServiceUrl = parseBaseUrl(
-  process.env.AUTH_FALLBACK_SERVICE_URL,
-  'AUTH_FALLBACK_SERVICE_URL',
-);
 const parsedPrimaryAuthServiceUrl = parseBaseUrl(
   process.env.AUTH_SERVICE_URL,
   'AUTH_SERVICE_URL',
 );
 
-if (
-  process.env.AUTH_FALLBACK_SERVICE_URL?.trim() &&
-  process.env.AUTH_SERVICE_URL?.trim() &&
-  !parsedFallbackAuthServiceUrl &&
-  !parsedPrimaryAuthServiceUrl
-) {
-  console.warn(
-    `[auth.remoteAuth] Both AUTH_FALLBACK_SERVICE_URL and AUTH_SERVICE_URL are invalid; falling back to ${LOCAL_AUTH_SERVICE_FALLBACK}.`,
+if (!parsedPrimaryAuthServiceUrl && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    '[auth.remoteAuth] AUTH_SERVICE_URL must be set to a valid http/https URL.',
   );
 }
 
-const DEFAULT_AUTH_SERVICE_URL =
-  parsedFallbackAuthServiceUrl ?? LOCAL_AUTH_SERVICE_FALLBACK;
-const AUTH_SERVICE_URL =
-  parsedPrimaryAuthServiceUrl ?? DEFAULT_AUTH_SERVICE_URL;
+const AUTH_SERVICE_URL = parsedPrimaryAuthServiceUrl ?? 'http://auth.invalid';
 const AUTH_FETCH_TIMEOUT_MS = Number.parseInt(
   process.env.AUTH_FETCH_TIMEOUT_MS ?? '5000',
   10,
@@ -62,10 +48,10 @@ function resolveAuthServiceUrl(req?: Request): string {
     const configuredHost = new URL(AUTH_SERVICE_URL).host.toLowerCase();
     const currentHost = getHost(req).toLowerCase();
     if (configuredHost === currentHost) {
-      return DEFAULT_AUTH_SERVICE_URL;
+      return AUTH_SERVICE_URL;
     }
   } catch {
-    return DEFAULT_AUTH_SERVICE_URL;
+    return AUTH_SERVICE_URL;
   }
   return AUTH_SERVICE_URL;
 }
@@ -89,7 +75,7 @@ function getProto(req: Request): string {
     try {
       return new URL(configuredBase).protocol.replace(':', '');
     } catch {
-      // fall back below
+      // ignore
     }
   }
   if (process.env.NODE_ENV === 'production') return 'https';
@@ -102,7 +88,7 @@ function getHost(req: Request): string {
     try {
       return new URL(configuredBase).host;
     } catch {
-      // fall back below
+      // ignore
     }
   }
   return req.get('host') || 'localhost';

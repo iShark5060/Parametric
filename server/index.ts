@@ -11,7 +11,6 @@ import { fileURLToPath } from 'url';
 import {
   authLoginRedirect,
   requireAuthApi,
-  requireAdmin,
   requireGameAccess,
   requirePageGameAccess,
 } from './auth/middleware.js';
@@ -37,8 +36,6 @@ import { seedArchonShards } from './db/seedArchonShards.js';
 import { runStartupPipeline } from './import/startupPipeline.js';
 import { apiRouter } from './routes/api.js';
 import { authRouter } from './routes/auth.js';
-import { corpusRouter } from './routes/corpus.js';
-import { importRouter } from './routes/import.js';
 
 const require = createRequire(import.meta.url);
 const SQLiteStore = require('better-sqlite3-session-store')(session);
@@ -146,13 +143,6 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
-const adminApiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 const appApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 600,
@@ -168,9 +158,6 @@ const publicPageLimiter = rateLimit({
 });
 
 app.use('/api/auth', authRouter);
-
-app.use('/api/import', adminApiLimiter, requireAdmin, importRouter);
-app.use('/api/corpus', adminApiLimiter, requireAdmin, corpusRouter);
 app.use(
   '/api',
   appApiLimiter,
@@ -223,6 +210,14 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
+    const message = (err.message || '').toLowerCase();
+    if (message.includes('csrf')) {
+      res.setHeader('X-CSRF-Error', '1');
+      res
+        .status(403)
+        .json({ error: 'Invalid CSRF token', code: 'CSRF_INVALID' });
+      return;
+    }
     console.error('[Error]', err.stack ?? err.message);
     res.status(500).json({ error: 'Internal server error' });
   },

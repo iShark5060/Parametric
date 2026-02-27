@@ -736,7 +736,7 @@ export function ModBuilder() {
     setTimeout(() => setCompareToast(false), 1500);
   };
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     if (!selectedEquipment) return;
 
     const finalName = saveModalName.trim() || buildName;
@@ -758,7 +758,7 @@ export function ModBuilder() {
       ? `/images${selectedEquipment.image_path}`
       : undefined;
 
-    const saved = storageSave(config, selectedEquipment.name, imagePath);
+    const saved = await storageSave(config, selectedEquipment.name, imagePath);
     setCurrentBuildId(saved.id);
     setShowSaveModal(false);
 
@@ -1096,7 +1096,11 @@ export function ModBuilder() {
               type="text"
               value={saveModalName}
               onChange={(e) => setSaveModalName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && confirmSave()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void confirmSave();
+                }
+              }}
               className="form-input mb-4 w-full"
               autoFocus
             />
@@ -1104,7 +1108,12 @@ export function ModBuilder() {
               <button className="btn" onClick={() => setShowSaveModal(false)}>
                 Cancel
               </button>
-              <button className="btn btn-accent" onClick={confirmSave}>
+              <button
+                className="btn btn-accent"
+                onClick={() => {
+                  void confirmSave();
+                }}
+              >
                 Save
               </button>
             </div>
