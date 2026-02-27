@@ -154,13 +154,7 @@ export function useBuildStorage() {
       if (!isUpdate && body) {
         savedId = body.id !== undefined ? String(body.id) : undefined;
       }
-      let refreshedBuilds: StoredBuild[];
-      try {
-        refreshedBuilds = await refresh();
-      } catch (error) {
-        console.error('Failed to refresh builds after save', error);
-        throw error;
-      }
+      const refreshedBuilds = await refresh();
       const saved = refreshedBuilds.find((build) => build.id === savedId);
       if (saved) {
         return saved;

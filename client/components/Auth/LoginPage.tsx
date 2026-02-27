@@ -73,6 +73,11 @@ export function LoginPage() {
               </a>
               .
             </p>
+          ) : showFallback && !authUrl ? (
+            <p className="mt-4 text-center text-sm text-danger" role="alert">
+              Unable to load sign-in link due to configuration error — contact
+              support or try again.
+            </p>
           ) : null}
         </div>
       </div>

@@ -134,8 +134,12 @@ export function AuthProvider({
   const logout = useCallback(async (redirectPath?: string) => {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error(
+        '[AuthContext] logout: apiFetch(/api/auth/logout) failed; redirectPath=',
+        redirectPath ?? defaultLogoutRedirectPath,
+        error,
+      );
     } finally {
       clearCsrfToken();
       window.location.href = buildCentralAuthLoginUrl(
