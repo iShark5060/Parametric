@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
+import { apiFetch } from '../utils/api';
+
 interface ApiState<T> {
   data: T | null;
   loading: boolean;
@@ -25,7 +27,7 @@ export function useApi<T>(url: string | null): ApiState<T> {
     setLoading(true);
     setError(null);
 
-    fetch(url, { signal: controller.signal })
+    apiFetch(url, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

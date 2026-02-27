@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { buildNewPath } from '../../app/paths';
+import { apiFetch } from '../../utils/api';
+
 interface SearchResult {
   category: string;
   name: string;
@@ -51,9 +54,9 @@ export function SearchBar() {
       setLoading(true);
       try {
         const [wfRes, wpRes, compRes] = await Promise.all([
-          fetch(`/api/warframes`).then((r) => r.json()),
-          fetch(`/api/weapons`).then((r) => r.json()),
-          fetch(`/api/companions`).then((r) => r.json()),
+          apiFetch(`/api/warframes`).then((r) => r.json()),
+          apiFetch(`/api/weapons`).then((r) => r.json()),
+          apiFetch(`/api/companions`).then((r) => r.json()),
         ]);
 
         const lowerTerm = term.toLowerCase();
@@ -133,9 +136,7 @@ export function SearchBar() {
 
   const handleSelect = (result: SearchResult) => {
     if (result.equipment_type) {
-      navigate(
-        `/builder/new/${result.equipment_type}/${encodeURIComponent(result.unique_name)}`,
-      );
+      navigate(buildNewPath(result.equipment_type, result.unique_name));
     }
     setQuery('');
     setOpen(false);

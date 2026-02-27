@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 
 import { requireAdmin } from '../auth/middleware.js';
 import { getDb } from '../db/connection.js';
@@ -29,6 +30,9 @@ apiRouter.get('/warframes', (_req: Request, res: Response) => {
     res.status(500).json({ error: msg });
   }
 });
+
+const MAX_NAME_LENGTH = 255;
+const COPY_PREFIX = 'Copy of ';
 
 const WEAPON_JUNK_PREFIXES = [
   '/Lotus/Types/Friendly/Pets/CreaturePets/',
@@ -79,6 +83,84 @@ apiRouter.get('/companions', (_req: Request, res: Response) => {
 
 const MOD_JUNK_SEGMENTS = ['/Beginner/', '/Intermediate/', '/Nemesis/'];
 const MOD_JUNK_SUFFIXES = ['SubMod'];
+
+const shardBuffCreateSchema = z.object({
+  shard_type_id: z.coerce.number().int().positive(),
+  description: z.string().trim().min(1).max(200),
+  base_value: z.number().finite(),
+  tauforged_value: z.number().finite(),
+  value_format: z.enum(['%', '+flat', '/s', 'proc']).default('%'),
+  sort_order: z.number().int().min(0).max(999).default(0),
+});
+
+const shardBuffUpdateSchema = z.object({
+  description: z.string().trim().min(1).max(200),
+  base_value: z.number().finite(),
+  tauforged_value: z.number().finite(),
+  value_format: z.enum(['%', '+flat', '/s', 'proc']),
+  sort_order: z.number().int().min(0).max(999),
+});
+
+const archonShardTypeSchema = z.object({
+  name: z.string().trim().min(1),
+  icon_path: z.string().trim().min(1),
+  tauforged_icon_path: z.string().trim().min(1),
+  sort_order: z.number().int().min(0).max(999).default(0),
+});
+
+const archonShardTypeUpdateSchema = z.object({
+  name: z.string().trim().min(1),
+  icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
+  tauforged_icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
+  sort_order: z.number().int().min(0).max(999).optional(),
+});
+
+function parseNumericId(raw: string | string[] | undefined): number | null {
+  if (Array.isArray(raw)) {
+    return parseNumericId(raw[0]);
+  }
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const value = Number.parseInt(trimmed, 10);
+  if (value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+type BuildRow = {
+  id: number;
+  user_id: number;
+  name: string;
+  equipment_type: string;
+  equipment_unique_name: string;
+  mod_config: string;
+  created_at: string;
+  updated_at: string;
+};
+
+function parseBuildConfig(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function toBuildResponse(row: BuildRow): Record<string, unknown> {
+  return {
+    ...row,
+    mod_config: parseBuildConfig(row.mod_config),
+  };
+}
 
 apiRouter.get('/mods', (req: Request, res: Response) => {
   try {
@@ -309,11 +391,30 @@ apiRouter.put(
   requireAdmin,
   (req: Request, res: Response) => {
     try {
+      const typeId = parseNumericId(req.params.id);
+      if (typeId === null) {
+        res.status(400).json({ error: 'Invalid type id' });
+        return;
+      }
+      const parsed = archonShardTypeUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error:
+            parsed.error.issues[0]?.message ||
+            'Invalid archon shard type payload',
+        });
+        return;
+      }
+      const {
+        name,
+        icon_path = null,
+        tauforged_icon_path = null,
+        sort_order = 0,
+      } = parsed.data;
       const db = getDb();
-      const { name, icon_path, tauforged_icon_path, sort_order } = req.body;
       db.prepare(
         'UPDATE archon_shard_types SET name = ?, icon_path = ?, tauforged_icon_path = ?, sort_order = ? WHERE id = ?',
-      ).run(name, icon_path, tauforged_icon_path, sort_order, req.params.id);
+      ).run(name, icon_path, tauforged_icon_path, sort_order, typeId);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -327,11 +428,20 @@ apiRouter.post(
   requireAdmin,
   (req: Request, res: Response) => {
     try {
+      const parsed = archonShardTypeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error:
+            parsed.error.issues[0]?.message ||
+            'Invalid archon shard type payload',
+        });
+        return;
+      }
+      const { name, icon_path, tauforged_icon_path, sort_order } = parsed.data;
       const db = getDb();
-      const { id, name, icon_path, tauforged_icon_path, sort_order } = req.body;
       db.prepare(
-        'INSERT INTO archon_shard_types (id, name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?, ?)',
-      ).run(id, name, icon_path, tauforged_icon_path, sort_order || 0);
+        'INSERT INTO archon_shard_types (name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?)',
+      ).run(name, icon_path, tauforged_icon_path, sort_order);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -346,6 +456,15 @@ apiRouter.post(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      const parsed = shardBuffCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error:
+            parsed.error.issues[0]?.message ||
+            'Invalid archon shard buff payload',
+        });
+        return;
+      }
       const {
         shard_type_id,
         description,
@@ -353,7 +472,7 @@ apiRouter.post(
         tauforged_value,
         value_format,
         sort_order,
-      } = req.body;
+      } = parsed.data;
       const result = db
         .prepare(
           'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
@@ -363,8 +482,8 @@ apiRouter.post(
           description,
           base_value,
           tauforged_value,
-          value_format || '%',
-          sort_order || 0,
+          value_format,
+          sort_order,
         );
       res.json({ success: true, id: result.lastInsertRowid });
     } catch (err) {
@@ -380,13 +499,27 @@ apiRouter.put(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      const buffId = parseNumericId(req.params.id);
+      if (buffId === null) {
+        res.status(400).json({ error: 'Invalid buff id' });
+        return;
+      }
+      const parsed = shardBuffUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({
+          error:
+            parsed.error.issues[0]?.message ||
+            'Invalid archon shard buff payload',
+        });
+        return;
+      }
       const {
         description,
         base_value,
         tauforged_value,
         value_format,
         sort_order,
-      } = req.body;
+      } = parsed.data;
       db.prepare(
         'UPDATE archon_shard_buffs SET description = ?, base_value = ?, tauforged_value = ?, value_format = ?, sort_order = ? WHERE id = ?',
       ).run(
@@ -395,7 +528,7 @@ apiRouter.put(
         tauforged_value,
         value_format,
         sort_order,
-        req.params.id,
+        buffId,
       );
       res.json({ success: true });
     } catch (err) {
@@ -411,9 +544,12 @@ apiRouter.delete(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
-      db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(
-        req.params.id,
-      );
+      const buffId = parseNumericId(req.params.id);
+      if (buffId === null) {
+        res.status(400).json({ error: 'Invalid buff id' });
+        return;
+      }
+      db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(buffId);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -446,6 +582,44 @@ apiRouter.get('/loadouts', (req: Request, res: Response) => {
   }
 });
 
+apiRouter.get('/loadouts/:id', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
+
+    const loadout = db
+      .prepare('SELECT * FROM loadouts WHERE id = ?')
+      .get(id) as Record<string, unknown> | undefined;
+    if (!loadout) {
+      res.status(404).json({ error: 'Loadout not found' });
+      return;
+    }
+    const links = db
+      .prepare('SELECT * FROM loadout_builds WHERE loadout_id = ?')
+      .all(id) as Array<Record<string, unknown>>;
+
+    res.json({
+      loadout: {
+        ...loadout,
+        builds: links,
+      },
+      can_edit: loadout.user_id === req.session.user_id,
+      owner_user_id: loadout.user_id,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 apiRouter.post('/loadouts', (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -454,9 +628,20 @@ apiRouter.post('/loadouts', (req: Request, res: Response) => {
       return;
     }
     const { name } = req.body;
+    if (typeof name !== 'string') {
+      res.status(400).json({ error: 'Invalid name' });
+      return;
+    }
+
+    const sanitizedName = name.trim();
+    if (sanitizedName.length === 0 || sanitizedName.length > 255) {
+      res.status(400).json({ error: 'Invalid name' });
+      return;
+    }
+
     const result = db
       .prepare('INSERT INTO loadouts (user_id, name) VALUES (?, ?)')
-      .run(req.session.user_id, name);
+      .run(req.session.user_id, sanitizedName);
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -471,10 +656,24 @@ apiRouter.put('/loadouts/:id', (req: Request, res: Response) => {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
+    const parsedId = parseNumericId(req.params.id);
+    if (parsedId === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
     const { name } = req.body;
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      res.status(400).json({ error: 'Invalid name' });
+      return;
+    }
+    const trimmedName = name.trim();
+    if (trimmedName.length > 255) {
+      res.status(400).json({ error: 'Invalid name' });
+      return;
+    }
     db.prepare(
       "UPDATE loadouts SET name = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
-    ).run(name, req.params.id, req.session.user_id);
+    ).run(trimmedName, parsedId, req.session.user_id);
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -503,13 +702,126 @@ apiRouter.delete('/loadouts/:id', (req: Request, res: Response) => {
   }
 });
 
+apiRouter.post('/loadouts/:id/copy', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
+
+    const sourceLoadout = db
+      .prepare('SELECT * FROM loadouts WHERE id = ?')
+      .get(id) as { id: number; user_id: number; name: string } | undefined;
+    if (!sourceLoadout) {
+      res.status(404).json({ error: 'Loadout not found' });
+      return;
+    }
+
+    const requestedName =
+      typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const requestedNameTruncated = requestedName.slice(0, MAX_NAME_LENGTH);
+    const copyName =
+      requestedNameTruncated.length > 0
+        ? requestedNameTruncated
+        : `${COPY_PREFIX}${sourceLoadout.name.trim().slice(0, MAX_NAME_LENGTH - COPY_PREFIX.length)}`;
+
+    const newLoadoutId = db.transaction(() => {
+      const createdLoadout = db
+        .prepare('INSERT INTO loadouts (user_id, name) VALUES (?, ?)')
+        .run(req.session.user_id, copyName);
+      const newId = Number(createdLoadout.lastInsertRowid);
+
+      const sourceLinks = db
+        .prepare(
+          'SELECT build_id, slot_type FROM loadout_builds WHERE loadout_id = ?',
+        )
+        .all(sourceLoadout.id) as Array<{
+        build_id: number;
+        slot_type: string;
+      }>;
+
+      for (const link of sourceLinks) {
+        const sourceBuild = db
+          .prepare('SELECT * FROM builds WHERE id = ?')
+          .get(link.build_id) as BuildRow | undefined;
+        if (!sourceBuild) {
+          continue;
+        }
+        const copiedBuild = db
+          .prepare(
+            `INSERT INTO builds (user_id, name, equipment_type, equipment_unique_name, mod_config, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+          )
+          .run(
+            req.session.user_id,
+            `Copy of ${sourceBuild.name}`,
+            sourceBuild.equipment_type,
+            sourceBuild.equipment_unique_name,
+            sourceBuild.mod_config,
+          );
+        db.prepare(
+          'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) VALUES (?, ?, ?)',
+        ).run(newId, copiedBuild.lastInsertRowid, link.slot_type);
+      }
+
+      return newId;
+    })();
+
+    res.json({ success: true, id: newLoadoutId });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
 apiRouter.post('/loadouts/:id/builds', (req: Request, res: Response) => {
   try {
     const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const loadoutId = parseNumericId(req.params.id);
+    if (loadoutId === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
     const { build_id, slot_type } = req.body;
-    db.prepare(
-      'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) VALUES (?, ?, ?)',
-    ).run(req.params.id, build_id, slot_type);
+    const buildId = Number.parseInt(String(build_id), 10);
+    if (
+      !Number.isFinite(buildId) ||
+      buildId <= 0 ||
+      typeof slot_type !== 'string'
+    ) {
+      res.status(400).json({ error: 'Invalid loadout build payload' });
+      return;
+    }
+    const result = db
+      .prepare(
+        'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM loadouts WHERE id = ? AND user_id = ?) AND EXISTS (SELECT 1 FROM builds WHERE id = ? AND user_id = ?)',
+      )
+      .run(
+        loadoutId,
+        buildId,
+        slot_type,
+        loadoutId,
+        req.session.user_id,
+        buildId,
+        req.session.user_id,
+      );
+    if (result.changes === 0) {
+      res.status(404).json({
+        error:
+          'Loadout or build not found, or you do not have permission to add it',
+      });
+      return;
+    }
     res.json({ success: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -522,9 +834,18 @@ apiRouter.delete(
   (req: Request, res: Response) => {
     try {
       const db = getDb();
+      if (!req.session.user_id) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const loadoutId = parseNumericId(req.params.id);
+      if (loadoutId === null) {
+        res.status(400).json({ error: 'Invalid loadout id' });
+        return;
+      }
       db.prepare(
-        'DELETE FROM loadout_builds WHERE loadout_id = ? AND slot_type = ?',
-      ).run(req.params.id, req.params.slotType);
+        'DELETE FROM loadout_builds WHERE loadout_id = ? AND slot_type = ? AND EXISTS (SELECT 1 FROM loadouts WHERE id = ? AND user_id = ?)',
+      ).run(loadoutId, req.params.slotType, loadoutId, req.session.user_id);
       res.json({ success: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -545,8 +866,43 @@ apiRouter.get('/builds', (req: Request, res: Response) => {
       .prepare(
         'SELECT * FROM builds WHERE user_id = ? ORDER BY updated_at DESC',
       )
-      .all(req.session.user_id);
-    res.json({ builds: rows });
+      .all(req.session.user_id) as BuildRow[];
+
+    const builds = rows.map((row) => toBuildResponse(row));
+
+    res.json({ builds });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
+apiRouter.get('/builds/:id', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
+
+    const row = db.prepare('SELECT * FROM builds WHERE id = ?').get(id) as
+      | BuildRow
+      | undefined;
+    if (!row) {
+      res.status(404).json({ error: 'Build not found' });
+      return;
+    }
+
+    res.json({
+      build: toBuildResponse(row),
+      can_edit: row.user_id === req.session.user_id,
+      owner_user_id: row.user_id,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: msg });
@@ -563,6 +919,15 @@ apiRouter.post('/builds', (req: Request, res: Response) => {
 
     const { name, equipment_type, equipment_unique_name, mod_config } =
       req.body;
+    if (
+      typeof name !== 'string' ||
+      typeof equipment_type !== 'string' ||
+      typeof equipment_unique_name !== 'string' ||
+      !mod_config
+    ) {
+      res.status(400).json({ error: 'Invalid build payload' });
+      return;
+    }
 
     const result = db
       .prepare(
@@ -592,8 +957,16 @@ apiRouter.put('/builds/:id', (req: Request, res: Response) => {
       return;
     }
 
-    const id = String(req.params.id);
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
     const { name, mod_config } = req.body;
+    if (typeof name !== 'string' || !mod_config) {
+      res.status(400).json({ error: 'Invalid build payload' });
+      return;
+    }
 
     db.prepare(
       `UPDATE builds SET name = ?, mod_config = ?, updated_at = datetime('now')
@@ -615,12 +988,64 @@ apiRouter.delete('/builds/:id', (req: Request, res: Response) => {
       return;
     }
 
-    const id = String(req.params.id);
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
     db.prepare('DELETE FROM builds WHERE id = ? AND user_id = ?').run(
       id,
       req.session.user_id,
     );
     res.json({ success: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
+  }
+});
+
+apiRouter.post('/builds/:id/copy', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    if (!req.session.user_id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid build id' });
+      return;
+    }
+    const source = db.prepare('SELECT * FROM builds WHERE id = ?').get(id) as
+      | BuildRow
+      | undefined;
+    if (!source) {
+      res.status(404).json({ error: 'Build not found' });
+      return;
+    }
+
+    const requestedName =
+      typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const requestedNameTruncated = requestedName.slice(0, MAX_NAME_LENGTH);
+    const copyName =
+      requestedNameTruncated.length > 0
+        ? requestedNameTruncated
+        : `${COPY_PREFIX}${source.name.trim().slice(0, MAX_NAME_LENGTH - COPY_PREFIX.length)}`;
+
+    const result = db
+      .prepare(
+        `INSERT INTO builds (user_id, name, equipment_type, equipment_unique_name, mod_config, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      )
+      .run(
+        req.session.user_id,
+        copyName,
+        source.equipment_type,
+        source.equipment_unique_name,
+        source.mod_config,
+      );
+
+    res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: msg });

@@ -17,6 +17,7 @@ import { ModSlotGrid } from './ModSlotGrid';
 import { RivenBuilder } from './RivenBuilder';
 import { ShardPickerPanel } from './ShardPickerPanel';
 import { StatsPanel } from './StatsPanel';
+import { buildEditPath } from '../../app/paths';
 import { useCompare } from '../../context/CompareContext';
 import { useApi } from '../../hooks/useApi';
 import { useBuildStorage } from '../../hooks/useBuildStorage';
@@ -36,6 +37,7 @@ import {
   type RivenConfig,
   type RivenWeaponType,
 } from '../../types/warframe';
+import { apiFetch } from '../../utils/api';
 import { getMaxRank } from '../../utils/arcaneUtils';
 import { calculateBuildDamage } from '../../utils/damage';
 import { calculateWeaponDps } from '../../utils/damageCalc';
@@ -122,12 +124,16 @@ export function ModBuilder() {
   const [currentBuildId, setCurrentBuildId] = useState<string | undefined>(
     buildId,
   );
+  const [targetEquipmentUniqueName, setTargetEquipmentUniqueName] = useState<
+    string | null
+  >(null);
   const [helminthConfig, setHelminthConfig] = useState<
     BuildConfig['helminth'] | undefined
   >();
   const [activeSlotType, setActiveSlotType] = useState<SlotType | undefined>();
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | undefined>();
   const [loaded, setLoaded] = useState(false);
+  const [isOwnBuild, setIsOwnBuild] = useState(true);
   const [arcaneSlots, setArcaneSlots] = useState<ArcaneSlot[]>([
     { rank: 0 },
     { rank: 0 },
@@ -158,6 +164,8 @@ export function ModBuilder() {
     setOrokinReactor(false);
     setBuildName('New Build');
     setCurrentBuildId(buildId);
+    setTargetEquipmentUniqueName(null);
+    setIsOwnBuild(true);
     setHelminthConfig(undefined);
     setActiveSlotType(undefined);
     setActiveSlotIndex(undefined);
@@ -188,12 +196,57 @@ export function ModBuilder() {
   useEffect(() => {
     if (loaded) return;
 
+    async function loadBuildFromApi(targetBuildId: string): Promise<void> {
+      const response = await apiFetch(`/api/builds/${targetBuildId}`);
+      if (!response.ok) {
+        return;
+      }
+      const body = (await response.json()) as {
+        build?: {
+          id: number | string;
+          name: string;
+          equipment_type: EquipmentType;
+          equipment_unique_name: string;
+          mod_config?: Partial<BuildConfig>;
+        };
+        can_edit?: boolean;
+      };
+      if (!body.build) {
+        return;
+      }
+      const config = (body.build.mod_config ?? {}) as Partial<BuildConfig>;
+      setEquipmentType(body.build.equipment_type);
+      setBuildName(
+        typeof config.name === 'string' ? config.name : body.build.name,
+      );
+      setTargetEquipmentUniqueName(body.build.equipment_unique_name);
+      setCurrentBuildId(
+        body.can_edit === true ? String(body.build.id) : undefined,
+      );
+      setIsOwnBuild(body.can_edit === true);
+      setHelminthConfig(config.helminth);
+      if (Array.isArray(config.arcaneSlots)) {
+        setArcaneSlots(config.arcaneSlots as ArcaneSlot[]);
+      }
+      if (Array.isArray(config.shardSlots)) {
+        setShardSlots(config.shardSlots as ShardSlotConfig[]);
+      }
+      if (typeof config.orokinReactor === 'boolean') {
+        setOrokinReactor(config.orokinReactor);
+      }
+      if (Array.isArray(config.slots)) {
+        setSlots(config.slots as ModSlot[]);
+      }
+    }
+
     if (buildId) {
       const stored = getBuild(buildId);
       if (stored) {
         setEquipmentType(stored.equipment_type);
         setBuildName(stored.name);
+        setTargetEquipmentUniqueName(stored.equipment_unique_name);
         setCurrentBuildId(stored.id);
+        setIsOwnBuild(true);
         setHelminthConfig(stored.helminth);
         if (stored.arcaneSlots)
           setArcaneSlots(stored.arcaneSlots as ArcaneSlot[]);
@@ -201,6 +254,8 @@ export function ModBuilder() {
           setShardSlots(stored.shardSlots as ShardSlotConfig[]);
         if (stored.orokinReactor !== undefined)
           setOrokinReactor(stored.orokinReactor);
+      } else {
+        void loadBuildFromApi(buildId);
       }
     } else if (routeEqType && equipmentId) {
       setEquipmentType(routeEqType as EquipmentType);
@@ -211,10 +266,12 @@ export function ModBuilder() {
     if (!equipmentData?.items?.length) return;
 
     if (buildId && !loaded) {
-      const stored = getBuild(buildId);
-      if (stored) {
+      const targetUniqueName =
+        targetEquipmentUniqueName ??
+        (isOwnBuild ? getBuild(buildId)?.equipment_unique_name : null);
+      if (targetUniqueName) {
         const item = equipmentData.items.find(
-          (i) => i.unique_name === stored.equipment_unique_name,
+          (i) => i.unique_name === targetUniqueName,
         );
         if (item) {
           setSelectedEquipment(item);
@@ -229,15 +286,23 @@ export function ModBuilder() {
         setLoaded(true);
       }
     }
-  }, [equipmentData, buildId, equipmentId, getBuild, loaded]);
+  }, [
+    equipmentData,
+    buildId,
+    equipmentId,
+    getBuild,
+    isOwnBuild,
+    loaded,
+    targetEquipmentUniqueName,
+  ]);
 
   useEffect(() => {
-    if (!loaded || !buildId) return;
+    if (!loaded || !buildId || !isOwnBuild) return;
     const stored = getBuild(buildId);
     if (stored?.slots?.length) {
       setSlots(stored.slots);
     }
-  }, [loaded, buildId, getBuild]);
+  }, [loaded, buildId, getBuild, isOwnBuild]);
 
   const equippedMods = useMemo(
     () => slots.filter((s) => s.mod).map((s) => s.mod!),
@@ -736,14 +801,14 @@ export function ModBuilder() {
     setTimeout(() => setCompareToast(false), 1500);
   };
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     if (!selectedEquipment) return;
 
     const finalName = saveModalName.trim() || buildName;
     setBuildName(finalName);
 
     const config: BuildConfig = {
-      id: currentBuildId,
+      id: isOwnBuild ? currentBuildId : undefined,
       name: finalName,
       equipment_type: equipmentType,
       equipment_unique_name: selectedEquipment.unique_name,
@@ -758,12 +823,21 @@ export function ModBuilder() {
       ? `/images${selectedEquipment.image_path}`
       : undefined;
 
-    const saved = storageSave(config, selectedEquipment.name, imagePath);
+    const saveConfig: BuildConfig = isOwnBuild
+      ? config
+      : { ...config, name: `Copy of ${config.name}` };
+
+    const saved = await storageSave(
+      saveConfig,
+      selectedEquipment.name,
+      imagePath,
+    );
     setCurrentBuildId(saved.id);
+    setIsOwnBuild(true);
     setShowSaveModal(false);
 
-    if (!buildId) {
-      navigate(`/builder/${saved.id}`, { replace: true });
+    if (!currentBuildId || !isOwnBuild) {
+      navigate(buildEditPath(saved.id), { replace: true });
     }
 
     setSaveToast(true);
@@ -844,6 +918,11 @@ export function ModBuilder() {
             <span className="text-lg font-semibold text-foreground">
               {buildName}
             </span>
+            {!isOwnBuild ? (
+              <span className="rounded border border-border px-2 py-1 text-xs font-semibold text-muted">
+                Read-only shared build
+              </span>
+            ) : null}
             {selectedEquipment && (
               <span className="text-sm text-muted">
                 {selectedEquipment.name}
@@ -885,7 +964,7 @@ export function ModBuilder() {
               </button>
             )}
             <button className="btn btn-accent" onClick={openSaveModal}>
-              Save
+              {isOwnBuild ? 'Save' : 'Copy Build'}
             </button>
           </div>
         </div>
@@ -1096,7 +1175,11 @@ export function ModBuilder() {
               type="text"
               value={saveModalName}
               onChange={(e) => setSaveModalName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && confirmSave()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void confirmSave();
+                }
+              }}
               className="form-input mb-4 w-full"
               autoFocus
             />
@@ -1104,7 +1187,12 @@ export function ModBuilder() {
               <button className="btn" onClick={() => setShowSaveModal(false)}>
                 Cancel
               </button>
-              <button className="btn btn-accent" onClick={confirmSave}>
+              <button
+                className="btn btn-accent"
+                onClick={() => {
+                  void confirmSave();
+                }}
+              >
                 Save
               </button>
             </div>

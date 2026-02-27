@@ -1,40 +1,50 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 
-import { apiFetch, clearCsrfToken } from '../../utils/api';
+import { buildCentralAuthLoginUrl } from '../../utils/api';
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  useEffect(() => {
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const cleanup = () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
 
     try {
-      clearCsrfToken();
-      const res = await apiFetch('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
-      });
+      const nextAuthUrl = buildCentralAuthLoginUrl('/builder');
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Login failed');
-      } else {
-        clearCsrfToken();
-        navigate('/builder');
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(nextAuthUrl, window.location.origin);
+      } catch {
+        setShowFallback(true);
+        return cleanup;
+      }
+
+      const isHttpUrl =
+        parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      if (!isHttpUrl) {
+        setShowFallback(true);
+        return cleanup;
+      }
+
+      setAuthUrl(nextAuthUrl);
+
+      fallbackTimer = setTimeout(() => setShowFallback(true), 1500);
+
+      try {
+        window.location.href = nextAuthUrl;
+      } catch {
+        setShowFallback(true);
       }
     } catch {
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
+      setShowFallback(true);
     }
-  };
+
+    return cleanup;
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
@@ -46,45 +56,27 @@ export function LoginPage() {
           <p className="mb-6 text-center text-sm text-muted">
             Warframe Mod Builder
           </p>
-
-          {error && <div className="error-msg mb-4">{error}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="mb-1.5 block text-sm text-muted">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="form-input"
-                required
-                autoFocus
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="mb-1.5 block text-sm text-muted">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-accent w-full"
-            >
-              {loading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
+          <p
+            className="text-center text-sm text-muted"
+            role="status"
+            aria-live="polite"
+          >
+            Redirecting to shared authentication...
+          </p>
+          {showFallback && authUrl ? (
+            <p className="mt-4 text-center text-sm text-muted">
+              If you are not redirected,{' '}
+              <a className="underline" href={authUrl}>
+                continue to sign in
+              </a>
+              .
+            </p>
+          ) : showFallback && !authUrl ? (
+            <p className="mt-4 text-center text-sm text-danger" role="alert">
+              Unable to load sign-in link due to configuration error — contact
+              support or try again.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

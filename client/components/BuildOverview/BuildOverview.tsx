@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { buildEditPath } from '../../app/paths';
 import { useBuildStorage } from '../../hooks/useBuildStorage';
 import {
   useLoadoutStorage,
@@ -51,12 +52,28 @@ export function BuildOverview() {
 
   const handleCreateLoadout = () => {
     if (!newLoadoutName.trim()) return;
-    createLoadout(newLoadoutName.trim());
+    void createLoadout(newLoadoutName.trim());
     setNewLoadoutName('');
     setShowNewLoadout(false);
   };
 
   const getBuildById = (id: string) => builds.find((b) => b.id === id);
+
+  const handleLinkBuildToLoadout = async (loadoutId: string) => {
+    if (!linkingBuild) return;
+
+    try {
+      await linkBuild(loadoutId, linkingBuild.id, linkingBuild.equipment_type);
+      setLinkingBuild(null);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to link build to loadout';
+      console.error('Failed to link build to loadout', error);
+      window.alert(message);
+    }
+  };
 
   if (loading) {
     return (
@@ -89,10 +106,12 @@ export function BuildOverview() {
                   getBuildById={getBuildById}
                   onDelete={() => {
                     if (confirm(`Delete loadout "${loadout.name}"?`))
-                      deleteLoadout(loadout.id);
+                      void deleteLoadout(loadout.id);
                   }}
-                  onNavigate={(buildId) => navigate(`/builder/${buildId}`)}
-                  onUnlink={(slotType) => unlinkBuild(loadout.id, slotType)}
+                  onNavigate={(buildId) => navigate(buildEditPath(buildId))}
+                  onUnlink={(slotType) => {
+                    void unlinkBuild(loadout.id, slotType);
+                  }}
                 />
               ))}
             </div>
@@ -122,10 +141,10 @@ export function BuildOverview() {
                   <BuildRow
                     key={build.id}
                     build={build}
-                    onClick={() => navigate(`/builder/${build.id}`)}
+                    onClick={() => navigate(buildEditPath(build.id))}
                     onDelete={() => {
                       if (confirm(`Delete "${build.name}"?`))
-                        deleteBuild(build.id);
+                        void deleteBuild(build.id);
                     }}
                     onLink={() => setLinkingBuild(build)}
                     hasLoadouts={loadouts.length > 0}
@@ -208,12 +227,7 @@ export function BuildOverview() {
                 <button
                   key={loadout.id}
                   onClick={() => {
-                    linkBuild(
-                      loadout.id,
-                      linkingBuild.id,
-                      linkingBuild.equipment_type,
-                    );
-                    setLinkingBuild(null);
+                    void handleLinkBuildToLoadout(loadout.id);
                   }}
                   className="flex w-full items-center justify-between rounded-lg border border-glass-border px-3 py-2 text-left text-sm text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
                 >

@@ -298,25 +298,36 @@ export function seedArchonShards(): void {
   }
 
   const insertType = db.prepare(
-    'INSERT OR IGNORE INTO archon_shard_types (id, name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO archon_shard_types (name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?)',
   );
   const insertBuff = db.prepare(
     'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
   );
 
   const seedAll = db.transaction(() => {
+    const typeIdMap = new Map<string, number>();
     for (const st of SHARD_TYPES) {
-      insertType.run(
-        st.id,
+      const result = insertType.run(
         st.name,
         st.icon_path,
         st.tauforged_icon_path,
         st.sort_order,
       );
+      typeIdMap.set(
+        st.id,
+        (result as { lastInsertRowid: number }).lastInsertRowid,
+      );
     }
     for (const sb of SHARD_BUFFS) {
+      const shardTypeId = typeIdMap.get(sb.shard_type_id);
+      if (shardTypeId === undefined) {
+        console.warn(
+          `[DB] Skipping SHARD_BUFFS entry: shard_type_id "${sb.shard_type_id}" not found in SHARD_TYPES (description: "${sb.description}", sort_order: ${sb.sort_order})`,
+        );
+        continue;
+      }
       insertBuff.run(
-        sb.shard_type_id,
+        shardTypeId,
         sb.description,
         sb.base_value,
         sb.tauforged_value,
