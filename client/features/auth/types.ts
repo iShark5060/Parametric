@@ -21,6 +21,7 @@ export interface AppAccountProfile {
   isAdmin: boolean;
   displayName: string;
   email: string;
+  avatarId: number;
 }
 
 export interface AppAccountState {
