@@ -11,7 +11,6 @@ export function LoginPage() {
 
     try {
       const nextAuthUrl = buildCentralAuthLoginUrl('/builder');
-      setAuthUrl(nextAuthUrl);
 
       let parsedUrl: URL;
       try {
@@ -27,6 +26,8 @@ export function LoginPage() {
         setShowFallback(true);
         return;
       }
+
+      setAuthUrl(nextAuthUrl);
 
       // If navigation is blocked or interrupted, provide manual continuation.
       fallbackTimer = setTimeout(() => setShowFallback(true), 1500);

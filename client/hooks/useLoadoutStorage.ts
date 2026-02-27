@@ -234,10 +234,16 @@ export function useLoadoutStorage() {
         body: JSON.stringify({ name }),
       });
       if (!response.ok) {
-        throw new Error('Failed to create loadout');
+        const details = await getApiErrorDetails(response);
+        throw new Error(`Failed to create loadout: ${details}`);
       }
       const body = (await response.json()) as { id?: string | number };
-      const createdId = String(body.id ?? crypto.randomUUID());
+      if (body.id === undefined || body.id === null) {
+        throw new Error(
+          'API did not return loadout id; creation failed and cannot sync with server',
+        );
+      }
+      const createdId = String(body.id);
       const loadout: Loadout = {
         id: createdId,
         name,

@@ -31,6 +31,9 @@ apiRouter.get('/warframes', (_req: Request, res: Response) => {
   }
 });
 
+const MAX_NAME_LENGTH = 255;
+const COPY_PREFIX = 'Copy of ';
+
 const WEAPON_JUNK_PREFIXES = [
   '/Lotus/Types/Friendly/Pets/CreaturePets/',
   '/Lotus/Types/Friendly/Pets/MoaPets/MoaPetParts/',
@@ -107,8 +110,8 @@ const archonShardTypeSchema = z.object({
 
 const archonShardTypeUpdateSchema = z.object({
   name: z.string().trim().min(1),
-  icon_path: z.union([z.string().trim(), z.null()]).optional(),
-  tauforged_icon_path: z.union([z.string().trim(), z.null()]).optional(),
+  icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
+  tauforged_icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
 });
 
@@ -725,41 +728,48 @@ apiRouter.post('/loadouts/:id/copy', (req: Request, res: Response) => {
 
     const requestedName =
       typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const requestedNameTruncated = requestedName.slice(0, MAX_NAME_LENGTH);
     const copyName =
-      requestedName.length > 0 ? requestedName : `Copy of ${sourceLoadout.name}`;
+      requestedNameTruncated.length > 0
+        ? requestedNameTruncated
+        : `${COPY_PREFIX}${sourceLoadout.name.trim().slice(0, MAX_NAME_LENGTH - COPY_PREFIX.length)}`;
 
-    const createdLoadout = db
-      .prepare('INSERT INTO loadouts (user_id, name) VALUES (?, ?)')
-      .run(req.session.user_id, copyName);
-    const newLoadoutId = Number(createdLoadout.lastInsertRowid);
+    const newLoadoutId = db.transaction(() => {
+      const createdLoadout = db
+        .prepare('INSERT INTO loadouts (user_id, name) VALUES (?, ?)')
+        .run(req.session.user_id, copyName);
+      const newId = Number(createdLoadout.lastInsertRowid);
 
-    const sourceLinks = db
-      .prepare('SELECT build_id, slot_type FROM loadout_builds WHERE loadout_id = ?')
-      .all(sourceLoadout.id) as Array<{ build_id: number; slot_type: string }>;
+      const sourceLinks = db
+        .prepare('SELECT build_id, slot_type FROM loadout_builds WHERE loadout_id = ?')
+        .all(sourceLoadout.id) as Array<{ build_id: number; slot_type: string }>;
 
-    for (const link of sourceLinks) {
-      const sourceBuild = db
-        .prepare('SELECT * FROM builds WHERE id = ?')
-        .get(link.build_id) as BuildRow | undefined;
-      if (!sourceBuild) {
-        continue;
+      for (const link of sourceLinks) {
+        const sourceBuild = db
+          .prepare('SELECT * FROM builds WHERE id = ?')
+          .get(link.build_id) as BuildRow | undefined;
+        if (!sourceBuild) {
+          continue;
+        }
+        const copiedBuild = db
+          .prepare(
+            `INSERT INTO builds (user_id, name, equipment_type, equipment_unique_name, mod_config, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+          )
+          .run(
+            req.session.user_id,
+            `Copy of ${sourceBuild.name}`,
+            sourceBuild.equipment_type,
+            sourceBuild.equipment_unique_name,
+            sourceBuild.mod_config,
+          );
+        db.prepare(
+          'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) VALUES (?, ?, ?)',
+        ).run(newId, copiedBuild.lastInsertRowid, link.slot_type);
       }
-      const copiedBuild = db
-        .prepare(
-          `INSERT INTO builds (user_id, name, equipment_type, equipment_unique_name, mod_config, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-        )
-        .run(
-          req.session.user_id,
-          `Copy of ${sourceBuild.name}`,
-          sourceBuild.equipment_type,
-          sourceBuild.equipment_unique_name,
-          sourceBuild.mod_config,
-        );
-      db.prepare(
-        'INSERT OR REPLACE INTO loadout_builds (loadout_id, build_id, slot_type) VALUES (?, ?, ?)',
-      ).run(newLoadoutId, copiedBuild.lastInsertRowid, link.slot_type);
-    }
+
+      return newId;
+    })();
 
     res.json({ success: true, id: newLoadoutId });
   } catch (err) {
@@ -1011,8 +1021,11 @@ apiRouter.post('/builds/:id/copy', (req: Request, res: Response) => {
 
     const requestedName =
       typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const requestedNameTruncated = requestedName.slice(0, MAX_NAME_LENGTH);
     const copyName =
-      requestedName.length > 0 ? requestedName : `Copy of ${source.name}`;
+      requestedNameTruncated.length > 0
+        ? requestedNameTruncated
+        : `${COPY_PREFIX}${source.name.trim().slice(0, MAX_NAME_LENGTH - COPY_PREFIX.length)}`;
 
     const result = db
       .prepare(

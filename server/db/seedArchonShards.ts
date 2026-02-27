@@ -317,7 +317,12 @@ export function seedArchonShards(): void {
     }
     for (const sb of SHARD_BUFFS) {
       const shardTypeId = typeIdMap.get(sb.shard_type_id);
-      if (shardTypeId === undefined) continue;
+      if (shardTypeId === undefined) {
+        console.warn(
+          `[DB] Skipping SHARD_BUFFS entry: shard_type_id "${sb.shard_type_id}" not found in SHARD_TYPES (description: "${sb.description}", sort_order: ${sb.sort_order})`,
+        );
+        continue;
+      }
       insertBuff.run(
         shardTypeId,
         sb.description,

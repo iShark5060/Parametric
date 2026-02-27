@@ -53,6 +53,10 @@ class ChunkErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error('[ChunkErrorBoundary] Chunk load failed', error, info.componentStack);
+  }
+
   private handleRetry = () => {
     this.setState({ hasError: false });
     if (this.props.reset) {

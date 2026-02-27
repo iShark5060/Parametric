@@ -781,12 +781,20 @@ export function mergeWikiData(
           st.tauforged_icon_path,
           st.sort_order,
         );
-        typeIdMap.set(st.id, (insertResult as { lastInsertRowid: number }).lastInsertRowid);
+        typeIdMap.set(
+          st.id,
+          Number((insertResult as { lastInsertRowid: number | bigint }).lastInsertRowid),
+        );
         result.shardTypes++;
       }
       for (const sb of data.shards.buffs) {
         const shardTypeId = typeIdMap.get(sb.shard_type_id);
-        if (shardTypeId === undefined) continue;
+        if (shardTypeId === undefined) {
+          console.warn(
+            `[wikiScraper] Missing shard type mapping for buff: shard_type_id=${sb.shard_type_id}, description=${sb.description}, sort_order=${sb.sort_order}`,
+          );
+          continue;
+        }
         insertBuff.run(
           shardTypeId,
           sb.description,

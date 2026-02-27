@@ -154,17 +154,28 @@ export function useBuildStorage() {
       if (!isUpdate && body) {
         savedId = body.id !== undefined ? String(body.id) : undefined;
       }
-      const refreshedBuilds = await refresh();
+      let refreshedBuilds: StoredBuild[];
+      try {
+        refreshedBuilds = await refresh();
+      } catch (error) {
+        console.error('Failed to refresh builds after save', error);
+        throw error;
+      }
       const saved = refreshedBuilds.find((build) => build.id === savedId);
       if (saved) {
         return saved;
       }
+      if (!savedId) {
+        throw new Error(
+          'Save succeeded but no build id returned from server; cannot construct StoredBuild',
+        );
+      }
       return {
-        ...(configWithMeta as BuildConfig),
-        id: savedId || crypto.randomUUID(),
+        ...configWithMeta,
+        id: savedId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      };
+      } as StoredBuild;
     },
     [refresh],
   );

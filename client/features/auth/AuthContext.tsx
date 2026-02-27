@@ -63,34 +63,23 @@ export function AuthProvider({
   const refresh = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await apiFetch('/api/auth/me', { signal });
-      if (signal?.aborted) {
-        return;
-      }
+      if (signal?.aborted) return;
+
       if (!res.ok) {
-        if (signal?.aborted) {
-          return;
-        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
 
       const data = (await res.json()) as RemoteAuthState;
-      if (signal?.aborted) {
-        return;
-      }
+      if (signal?.aborted) return;
+
       if (data.authenticated !== true) {
-        if (signal?.aborted) {
-          return;
-        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
       if (data.has_game_access !== true) {
-        if (signal?.aborted) {
-          return;
-        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('forbidden');
         return;
@@ -103,17 +92,11 @@ export function AuthProvider({
         typeof user.username !== 'string' ||
         typeof user.is_admin !== 'boolean'
       ) {
-        if (signal?.aborted) {
-          return;
-        }
         setAccount({ isAuthenticated: false, profile: null });
         setStatus('unauthenticated');
         return;
       }
 
-      if (signal?.aborted) {
-        return;
-      }
       setAccount({ isAuthenticated: true, profile: buildProfile(user) });
       setStatus('ok');
     } catch (error) {

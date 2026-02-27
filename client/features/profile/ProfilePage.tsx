@@ -49,7 +49,8 @@ export function ProfilePage() {
         email: email.trim(),
       });
       setSaveStatus({ type: 'success', message: 'Profile saved.' });
-    } catch {
+    } catch (e) {
+      console.error('Failed to save profile', e);
       setSaveStatus({ type: 'error', message: 'Failed to save profile.' });
     } finally {
       setIsSaving(false);
@@ -102,7 +103,8 @@ export function ProfilePage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch {
+    } catch (err) {
+      console.error('Failed to change password', err);
       setPasswordStatus({
         type: 'err',
         message: 'Failed to change password.',
@@ -110,6 +112,14 @@ export function ProfilePage() {
     } finally {
       setPasswordSaving(false);
     }
+  };
+
+  const resetPasswordModalState = () => {
+    setShowChangePassword(false);
+    setPasswordStatus(null);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
   };
 
   return (
@@ -214,7 +224,7 @@ export function ProfilePage() {
         {saveStatus && (
           <p
             className={`mt-3 text-sm ${
-              saveStatus.type === 'success' ? 'text-success' : 'text-error'
+              saveStatus.type === 'success' ? 'text-success' : 'text-danger'
             }`}
             role="status"
             aria-live="polite"
@@ -227,13 +237,7 @@ export function ProfilePage() {
         open={showChangePassword}
         className="max-w-md"
         ariaLabelledBy="change-password-title"
-        onClose={() => {
-          setShowChangePassword(false);
-          setPasswordStatus(null);
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-        }}
+        onClose={resetPasswordModalState}
       >
         <h3
           id="change-password-title"
@@ -294,13 +298,7 @@ export function ProfilePage() {
           <button
             type="button"
             className="btn btn-secondary text-sm"
-            onClick={() => {
-              setShowChangePassword(false);
-              setPasswordStatus(null);
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-            }}
+            onClick={resetPasswordModalState}
           >
             Close
           </button>
