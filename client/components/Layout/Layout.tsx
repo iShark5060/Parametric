@@ -9,7 +9,11 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { EquipmentGridModal } from './EquipmentGridModal';
 import { SearchBar } from './SearchBar';
-import { APP_DISPLAY_NAME, LEGAL_ENTITY_NAME } from '../../app/config';
+import {
+  APP_DISPLAY_NAME,
+  LEGAL_ENTITY_NAME,
+  LEGAL_PAGE_URL,
+} from '../../app/config';
 import { APP_PATHS, buildNewPath } from '../../app/paths';
 import bgArt from '../../assets/background.txt?raw';
 import feathers from '../../assets/feathers.png';
@@ -17,6 +21,7 @@ import { Menu } from '../../components/ui/Menu';
 import { useCompare } from '../../context/CompareContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../features/auth/AuthContext';
+import { getProfileIconSrc } from '../../utils/profileIcons';
 import { CompareBar } from '../Compare/CompareBar';
 
 export function Layout() {
@@ -130,10 +135,7 @@ export function Layout() {
   const profile = account.profile;
   const isLoggedIn = account.isAuthenticated && profile !== null;
   const isAdmin = profile?.isAdmin === true;
-  const avatarLetter = (profile?.displayName || profile?.username || 'U')
-    .trim()
-    .charAt(0)
-    .toUpperCase();
+  const avatarSrc = getProfileIconSrc(profile?.avatarId ?? 1);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -209,9 +211,7 @@ export function Layout() {
                   }
                 }}
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
-                  {avatarLetter}
-                </span>
+                <img src={avatarSrc} alt="" className="profile-avatar-image" />
               </button>
               {userMenuOpen && (
                 <Menu baseClass="user-menu" className="focus:outline-none">
@@ -231,14 +231,14 @@ export function Layout() {
                         Admin
                       </Link>
                     ) : null}
-                    <Link
-                      to={APP_PATHS.profile}
+                    <a
+                      href="/auth/profile"
                       className="user-menu-item"
                       role="menuitem"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Profile
-                    </Link>
+                    </a>
                     <button
                       type="button"
                       className="user-menu-item text-left"
@@ -272,16 +272,15 @@ export function Layout() {
         />
       )}
       <footer className="relative z-10 flex h-[50px] items-center justify-center px-6">
-        <div className="mx-auto w-full max-w-[2000px] flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-sm text-muted">
-          <span>
-            ©{currentYear} {LEGAL_ENTITY_NAME}
-          </span>
-          <Link
-            to={APP_PATHS.legal}
-            className="hover:text-foreground transition-colors"
+        <div className="mx-auto w-full max-w-[2000px] text-center">
+          <a
+            href={LEGAL_PAGE_URL}
+            className="text-sm text-muted hover:text-foreground"
+            target={LEGAL_PAGE_URL.startsWith('http') ? '_blank' : undefined}
+            rel={LEGAL_PAGE_URL.startsWith('http') ? 'noreferrer' : undefined}
           >
-            Legal
-          </Link>
+            ©{currentYear} {LEGAL_ENTITY_NAME}
+          </a>
         </div>
       </footer>
     </div>

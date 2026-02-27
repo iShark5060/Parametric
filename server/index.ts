@@ -190,6 +190,25 @@ app.get('/readyz', (_req, res) => {
   }
 });
 
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL?.trim().replace(
+  /\/+$/,
+  '',
+);
+app.get('/auth/profile', publicPageLimiter, (_req, res) => {
+  if (AUTH_SERVICE_URL) {
+    res.redirect(`${AUTH_SERVICE_URL}/profile`);
+    return;
+  }
+  res.redirect('/login');
+});
+app.get('/auth/legal', publicPageLimiter, (_req, res) => {
+  if (AUTH_SERVICE_URL) {
+    res.redirect(`${AUTH_SERVICE_URL}/legal`);
+    return;
+  }
+  res.redirect('/legal');
+});
+
 if (NODE_ENV === 'production') {
   const clientDir = path.resolve(__dirname, '..', 'client');
   app.use(publicPageLimiter, express.static(clientDir));

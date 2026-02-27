@@ -15,3 +15,8 @@ export const LEGAL_ENTITY_NAME = readTrimmedEnv(
   import.meta.env.VITE_LEGAL_ENTITY_NAME as string | undefined,
   'Dark Avian Labs',
 );
+
+export const LEGAL_PAGE_URL = readTrimmedEnv(
+  import.meta.env.VITE_LEGAL_PAGE_URL as string | undefined,
+  '/auth/legal',
+);
