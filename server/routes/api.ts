@@ -100,7 +100,7 @@ apiRouter.get('/search', (req: Request, res: Response) => {
       return;
     }
 
-    const escapedTerm = term.replace(/[%_]/g, '\\$&');
+    const escapedTerm = term.replace(/[\\%_]/g, '\\$&');
     const like = `%${escapedTerm}%`;
     const warframes = db
       .prepare(

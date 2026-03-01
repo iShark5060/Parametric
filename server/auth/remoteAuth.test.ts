@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
-
-import { buildAuthLoginUrl } from './remoteAuth.js';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('buildAuthLoginUrl', () => {
-  it('builds next URL from canonical public base when configured', () => {
+  it('builds next URL from canonical public base when configured', async () => {
     const original = process.env.APP_PUBLIC_BASE_URL;
     process.env.APP_PUBLIC_BASE_URL = 'https://parametric.example.com';
     try {
+      vi.resetModules();
+      const { buildAuthLoginUrl } = await import('./remoteAuth.js');
       const req = {
         originalUrl: '/builder',
         protocol: 'http',
@@ -27,7 +27,12 @@ describe('buildAuthLoginUrl', () => {
         'https://parametric.example.com/builder',
       );
     } finally {
-      process.env.APP_PUBLIC_BASE_URL = original;
+      if (original == null) {
+        delete process.env.APP_PUBLIC_BASE_URL;
+      } else {
+        process.env.APP_PUBLIC_BASE_URL = original;
+      }
+      vi.resetModules();
     }
   });
 });
