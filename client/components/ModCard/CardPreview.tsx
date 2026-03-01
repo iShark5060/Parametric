@@ -8,6 +8,10 @@ import {
   getRarityBorderColor,
   getModAsset,
 } from './cardLayout';
+import {
+  getDamageTypeIconPath,
+  splitDisplayTextByDamageTokens,
+} from '../../utils/damageTypeTokens';
 
 export interface CardPreviewProps {
   layout?: CardLayout;
@@ -88,6 +92,42 @@ export function CardPreview({
   }, [L.descOffsetY, L.nameFontSize, L.descFontSize, s, collapsed]);
 
   const effectiveContentY = collapsed ? L.contentAreaY : autoContentY;
+
+  const renderTextWithDamageIcons = (
+    text: string,
+    iconSize: number,
+  ): React.ReactNode => {
+    return text.split('\n').map((line, lineIndex) => (
+      <span key={lineIndex} className="block">
+        {splitDisplayTextByDamageTokens(line).map((segment, segmentIndex) => {
+          if (segment.kind === 'text') {
+            return <span key={`${lineIndex}-t-${segmentIndex}`}>{segment.value}</span>;
+          }
+          const iconPath = getDamageTypeIconPath(segment.value);
+          if (!iconPath) {
+            return (
+              <span key={`${lineIndex}-u-${segmentIndex}`}>{segment.value}</span>
+            );
+          }
+          return (
+            <img
+              key={`${lineIndex}-i-${segmentIndex}`}
+              src={iconPath}
+              alt={segment.value}
+              className="mx-[0.08em] inline-block"
+              style={{
+                width: iconSize,
+                height: iconSize,
+                verticalAlign: '-0.16em',
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.7))',
+              }}
+              draggable={false}
+            />
+          );
+        })}
+      </span>
+    ));
+  };
 
   return (
     <div
@@ -451,12 +491,12 @@ export function CardPreview({
                   fontSize: L.descFontSize * s,
                   fontWeight: 400,
                   lineHeight: 1.4,
-                  whiteSpace: 'pre-line',
+                  whiteSpace: 'pre-wrap',
                   color: secondaryTextColor,
                   textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                 }}
               >
-                {modDescription}
+                {renderTextWithDamageIcons(modDescription, L.descFontSize * s * 1.05)}
               </div>
             )}
             {setTotal > 0 && setDescription && (
@@ -499,7 +539,10 @@ export function CardPreview({
                     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
-                  {setDescription}
+                  {renderTextWithDamageIcons(
+                    setDescription,
+                    L.descFontSize * s * 0.95,
+                  )}
                 </div>
               </>
             )}

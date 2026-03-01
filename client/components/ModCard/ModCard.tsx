@@ -8,8 +8,8 @@ import {
 } from './cardLayout';
 import { CardPreview } from './CardPreview';
 import type { Mod, SlotType } from '../../types/warframe';
+import { sanitizeDisplayTextKeepDamageTokens } from '../../utils/damageTypeTokens';
 import { calculateEffectiveDrain } from '../../utils/drain';
-import { sanitizeDisplayText } from '../../utils/sanitizeDisplayText';
 
 interface ModCardProps {
   mod: Mod;
@@ -66,10 +66,10 @@ export function ModCard({
     if (mod.description) {
       const descriptions: string[] = JSON.parse(mod.description);
       const raw = descriptions[Math.min(rank, descriptions.length - 1)] ?? '';
-      description = sanitizeDisplayText(raw);
+      description = sanitizeDisplayTextKeepDamageTokens(raw);
     }
   } catch {
-    description = sanitizeDisplayText(mod.description ?? '');
+    description = sanitizeDisplayTextKeepDamageTokens(mod.description ?? '');
   }
 
   let setDescription = '';
@@ -82,7 +82,7 @@ export function ModCard({
         Math.max(effectiveSetRank - 1, 0),
         setStats.length - 1,
       );
-      setDescription = sanitizeDisplayText(setStats[idx] ?? '');
+      setDescription = sanitizeDisplayTextKeepDamageTokens(setStats[idx] ?? '');
     } catch {
       // ignore
     }

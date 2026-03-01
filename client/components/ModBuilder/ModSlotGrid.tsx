@@ -507,7 +507,7 @@ function SlotCell({
                               Math.max(1, (slot.setRank ?? 1) - 1),
                             )
                           }
-                          className="absolute left-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
+                          className="absolute left-[52px] flex h-[14px] w-[16px] items-center justify-center rounded-full border border-warning/30 bg-glass-active text-[9px] font-bold text-warning backdrop-blur-md transition-colors hover:bg-glass-hover"
                           title="Decrease set rank"
                         >
                           −
@@ -521,7 +521,7 @@ function SlotCell({
                               ),
                             )
                           }
-                          className="absolute right-[32px] flex h-[14px] w-[22px] items-center justify-center rounded-full border border-glass-border bg-glass-active text-[9px] font-bold text-foreground backdrop-blur-md transition-colors hover:bg-glass-hover"
+                          className="absolute right-[52px] flex h-[14px] w-[16px] items-center justify-center rounded-full border border-warning/30 bg-glass-active text-[9px] font-bold text-warning backdrop-blur-md transition-colors hover:bg-glass-hover"
                           title="Increase set rank"
                         >
                           +

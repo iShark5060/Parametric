@@ -2,6 +2,12 @@ import { useMemo } from 'react';
 
 import { useApi } from '../../hooks/useApi';
 import type { Warframe, Ability, BuildConfig } from '../../types/warframe';
+import {
+  getDamageTypeIconPath,
+  sanitizeDisplayTextKeepDamageTokens,
+  splitDisplayTextByDamageTokens,
+  truncateDamageTokenText,
+} from '../../utils/damageTypeTokens';
 import { GlassTooltip } from '../GlassTooltip';
 
 export interface ParsedAbility {
@@ -26,6 +32,33 @@ export function AbilityBar({
   activeAbilityIndex,
   onAbilityClick,
 }: AbilityBarProps) {
+  const renderDamageSnippet = (raw: string): React.ReactNode => {
+    const cleaned = sanitizeDisplayTextKeepDamageTokens(raw);
+    const snippet = truncateDamageTokenText(cleaned, 120);
+    return splitDisplayTextByDamageTokens(snippet).map((segment, segmentIndex) => {
+      if (segment.kind === 'text') {
+        return <span key={`t-${segmentIndex}`}>{segment.value}</span>;
+      }
+      const iconPath = getDamageTypeIconPath(segment.value);
+      if (!iconPath) return <span key={`u-${segmentIndex}`}>{segment.value}</span>;
+      return (
+        <img
+          key={`i-${segmentIndex}`}
+          src={iconPath}
+          alt={segment.value}
+          className="mx-[0.08em] inline-block"
+          style={{
+            width: 12,
+            height: 12,
+            verticalAlign: '-0.12em',
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.7))',
+          }}
+          draggable={false}
+        />
+      );
+    });
+  };
+
   const { data: helminthData } = useApi<{ items: Ability[] }>(
     '/api/helminth-abilities',
   );
@@ -154,12 +187,12 @@ export function AbilityBar({
                   )}
                   {ability.description && !isReplaced && (
                     <div className="mt-0.5 text-[10px] text-muted">
-                      {ability.description.substring(0, 120)}
+                      {renderDamageSnippet(ability.description)}
                     </div>
                   )}
                   {isReplaced && selectedReplacement?.description && (
                     <div className="mt-0.5 text-[10px] text-muted">
-                      {selectedReplacement.description.substring(0, 120)}
+                      {renderDamageSnippet(selectedReplacement.description)}
                     </div>
                   )}
                 </>
