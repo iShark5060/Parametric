@@ -79,7 +79,7 @@ export function BuildOverview() {
     return (
       <div className="mx-auto max-w-[2000px]">
         <div className="glass-shell flex h-64 items-center justify-center">
-          <p className="text-muted">Loading builds...</p>
+          <p className="text-muted">Loading builds…</p>
         </div>
       </div>
     );
@@ -262,6 +262,14 @@ function BuildRow({
     <div
       className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-all hover:bg-glass-hover"
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass">
         {build.equipment_image ? (
@@ -292,7 +300,7 @@ function BuildRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {hasLoadouts && (
           <button
             className="rounded-lg p-1.5 text-xs text-muted/60 hover:bg-accent/10 hover:text-accent"
@@ -301,6 +309,7 @@ function BuildRow({
               onLink();
             }}
             title="Link to loadout"
+            aria-label="Link build to loadout"
           >
             ⛓
           </button>
@@ -311,6 +320,7 @@ function BuildRow({
             e.stopPropagation();
             onDelete();
           }}
+          aria-label="Delete build"
         >
           &times;
         </button>
@@ -339,6 +349,15 @@ function LoadoutRow({
       <div
         className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-all hover:bg-glass-hover"
         onClick={() => setExpanded(!expanded)}
+        role="button"
+        aria-expanded={expanded}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setExpanded((prev) => !prev);
+          }
+        }}
       >
         <span className="text-xs text-muted/50">{expanded ? '▼' : '▶'}</span>
         <div className="min-w-0 flex-1">
@@ -350,11 +369,12 @@ function LoadoutRow({
           </span>
         </div>
         <button
-          className="shrink-0 rounded-lg p-1.5 text-xs text-muted/40 opacity-0 hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+          className="shrink-0 rounded-lg p-1.5 text-xs text-muted/40 opacity-0 hover:bg-danger/10 hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
+          aria-label="Delete loadout"
         >
           &times;
         </button>
@@ -383,6 +403,7 @@ function LoadoutRow({
                     <button
                       onClick={() => onUnlink(key)}
                       className="text-muted/40 hover:text-danger"
+                      aria-label={`Unlink ${label}`}
                     >
                       &times;
                     </button>

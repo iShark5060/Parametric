@@ -25,9 +25,11 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
 export function SearchBar() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,92 +45,55 @@ export function SearchBar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
+
   const search = useCallback(
     debounce(async (term: string) => {
+      abortControllerRef.current?.abort();
+
       if (!term || term.length < 2) {
+        setLoading(false);
         setResults([]);
+        setSearchError(null);
         setOpen(false);
         return;
       }
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setLoading(true);
+      setSearchError(null);
       try {
-        const [wfRes, wpRes, compRes] = await Promise.all([
-          apiFetch(`/api/warframes`).then((r) => r.json()),
-          apiFetch(`/api/weapons`).then((r) => r.json()),
-          apiFetch(`/api/companions`).then((r) => r.json()),
-        ]);
-
-        const lowerTerm = term.toLowerCase();
-        const all: SearchResult[] = [];
-
-        for (const item of (wfRes.items || []) as Array<{
-          name: string;
-          unique_name: string;
-          image_path?: string;
-          product_category?: string;
-        }>) {
-          if (item.name.toLowerCase().includes(lowerTerm)) {
-            const cat = item.product_category || 'Warframes';
-            let eqType = 'warframe';
-            if (cat === 'Archwings') eqType = 'archwing';
-            else if (cat === 'Necramechs') eqType = 'necramech';
-            all.push({
-              category: cat,
-              name: item.name,
-              unique_name: item.unique_name,
-              image_path: item.image_path,
-              equipment_type: eqType,
-            });
-          }
+        const response = await apiFetch(
+          `/api/search?q=${encodeURIComponent(term)}&limit=20`,
+          { signal: controller.signal },
+        );
+        const body = (await response.json()) as { items?: SearchResult[] };
+        const items = Array.isArray(body.items) ? body.items : [];
+        if (controller.signal.aborted) return;
+        setResults(items);
+        setOpen(items.length > 0);
+      } catch (e) {
+        if (
+          controller.signal.aborted ||
+          (e instanceof DOMException && e.name === 'AbortError')
+        ) {
+          return;
         }
-
-        for (const item of (wpRes.items || []) as Array<{
-          name: string;
-          unique_name: string;
-          image_path?: string;
-          product_category?: string;
-          slot?: number;
-        }>) {
-          if (item.name.toLowerCase().includes(lowerTerm)) {
-            let eqType = 'primary';
-            const cat = item.product_category || '';
-            if (cat === 'Pistols') eqType = 'secondary';
-            else if (cat === 'Melee') eqType = 'melee';
-            else if (cat === 'SpaceGuns') eqType = 'archgun';
-            else if (cat === 'SpaceMelee') eqType = 'archmelee';
-            all.push({
-              category: cat || 'Weapons',
-              name: item.name,
-              unique_name: item.unique_name,
-              image_path: item.image_path,
-              equipment_type: eqType,
-            });
-          }
-        }
-
-        for (const item of (compRes.items || []) as Array<{
-          name: string;
-          unique_name: string;
-          image_path?: string;
-        }>) {
-          if (item.name.toLowerCase().includes(lowerTerm)) {
-            all.push({
-              category: 'Companions',
-              name: item.name,
-              unique_name: item.unique_name,
-              image_path: item.image_path,
-              equipment_type: 'companion',
-            });
-          }
-        }
-
-        setResults(all.slice(0, 20));
-        setOpen(all.length > 0);
-      } catch {
+        console.error('Search request failed', e);
+        setSearchError('Search failed');
         setResults([]);
+        setOpen(true);
       } finally {
-        setLoading(false);
+        if (abortControllerRef.current === controller) {
+          setLoading(false);
+        }
       }
     }, 300),
     [],
@@ -153,7 +118,8 @@ export function SearchBar() {
         <input
           type="text"
           className="search-box w-52"
-          placeholder="Search..."
+          placeholder="Search…"
+          aria-label="Search equipment"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -166,9 +132,11 @@ export function SearchBar() {
         {query && (
           <button
             className="absolute right-2 top-1/2 -translate-y-1/2 text-lg text-muted hover:text-foreground"
+            aria-label="Clear search"
             onClick={() => {
               setQuery('');
               setResults([]);
+              setSearchError(null);
               setOpen(false);
             }}
           >
@@ -180,8 +148,10 @@ export function SearchBar() {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-xl border border-glass-border bg-surface-modal shadow-lg backdrop-blur-xl">
           {loading ? (
+            <div className="p-3 text-center text-sm text-muted">Searching…</div>
+          ) : searchError ? (
             <div className="p-3 text-center text-sm text-muted">
-              Searching...
+              {searchError}
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto custom-scroll">
@@ -193,7 +163,7 @@ export function SearchBar() {
                   {items.map((item) => (
                     <button
                       key={item.unique_name}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-muted transition-all hover:bg-glass-hover hover:text-foreground"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
                       onClick={() => handleSelect(item)}
                     >
                       {item.image_path && (

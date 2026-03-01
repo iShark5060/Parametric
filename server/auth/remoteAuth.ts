@@ -59,29 +59,45 @@ export interface RemoteAuthState {
   permissions: string[];
 }
 
-function getProto(req: Request): string {
-  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
-  if (configuredBase) {
-    try {
-      return new URL(configuredBase).protocol.replace(':', '');
-    } catch {
-      // ignore
-    }
-  }
-  if (process.env.NODE_ENV === 'production') return 'https';
-  return req.protocol;
+function getAppPublicBaseUrl(): string {
+  return APP_PUBLIC_BASE_URL_PARSED;
 }
 
-function getHost(req: Request): string {
-  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
-  if (configuredBase) {
-    try {
-      return new URL(configuredBase).host;
-    } catch {
-      // ignore
-    }
+function parseAppPublicBaseUrl(rawValue: string | undefined): string {
+  const configuredBase = rawValue?.trim();
+  if (!configuredBase) {
+    throw new Error('APP_PUBLIC_BASE_URL must be set.');
   }
-  return req.get('host') || 'localhost';
+  let parsed: URL;
+  try {
+    parsed = new URL(configuredBase);
+  } catch {
+    throw new Error('APP_PUBLIC_BASE_URL must be a valid URL.');
+  }
+  const nodeEnv = process.env.NODE_ENV;
+  const isLocalHttp =
+    parsed.protocol === 'http:' &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '::1');
+  const isNonProd = nodeEnv === 'development' || nodeEnv === 'test';
+  if (parsed.protocol !== 'https:' && !(isLocalHttp || isNonProd)) {
+    throw new Error('APP_PUBLIC_BASE_URL must use https://');
+  }
+  return parsed.toString().replace(/\/+$/, '');
+}
+
+const APP_PUBLIC_BASE_URL_PARSED = parseAppPublicBaseUrl(
+  process.env.APP_PUBLIC_BASE_URL,
+);
+
+function isSafeRelativePath(nextPath: string): boolean {
+  return (
+    nextPath.startsWith('/') &&
+    !nextPath.startsWith('//') &&
+    !nextPath.includes('\\') &&
+    !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(nextPath)
+  );
 }
 
 type AuthStateCache = Partial<Record<string, Promise<RemoteAuthState>>>;
@@ -101,10 +117,9 @@ function getRequestAuthCache(req: Request): AuthStateCache {
 }
 
 export function buildAuthLoginUrl(req: Request, nextPath?: string): string {
-  const host = getHost(req);
-  const proto = getProto(req);
   const requested = nextPath || req.originalUrl || '/';
-  const next = `${proto}://${host}${requested}`;
+  const safeNextPath = isSafeRelativePath(requested) ? requested : '/';
+  const next = new URL(safeNextPath, getAppPublicBaseUrl()).toString();
   const loginUrl = new URL(`${resolveAuthServiceUrl(req)}/login`);
   loginUrl.searchParams.set('next', next);
   return loginUrl.toString();
@@ -242,24 +257,58 @@ export async function proxyAuthLogout(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const host = getHost(req);
-  const proto = getProto(req);
-  const next = `${proto}://${host}/login`;
-  const logoutUrl = new URL(`${resolveAuthServiceUrl(req)}/logout`);
-  logoutUrl.searchParams.set('next', next);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+  const authBase = resolveAuthServiceUrl(req);
+  const csrfUrl = `${authBase}/api/auth/csrf`;
+  const logoutUrl = `${authBase}/api/auth/logout`;
 
   try {
-    const upstream = await fetch(logoutUrl, {
-      method: 'GET',
-      headers: {
-        cookie: req.headers.cookie ?? '',
-        accept: 'text/html',
-      },
-      redirect: 'manual',
-      signal: controller.signal,
-    });
+    const csrfController = new AbortController();
+    const csrfTimeout = setTimeout(
+      () => csrfController.abort(),
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    let csrfResponse: globalThis.Response;
+    try {
+      csrfResponse = await fetch(csrfUrl, {
+        method: 'GET',
+        headers: {
+          cookie: req.headers.cookie ?? '',
+          accept: 'application/json',
+        },
+        signal: csrfController.signal,
+      });
+    } finally {
+      clearTimeout(csrfTimeout);
+    }
+    if (!csrfResponse.ok) {
+      throw new Error('Failed to fetch CSRF token for logout');
+    }
+    const csrfBody = (await csrfResponse.json()) as { csrfToken?: string };
+    if (!csrfBody.csrfToken) {
+      throw new Error('Missing CSRF token for logout');
+    }
+
+    const logoutController = new AbortController();
+    const logoutTimeout = setTimeout(
+      () => logoutController.abort(),
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    let upstream: globalThis.Response;
+    try {
+      upstream = await fetch(logoutUrl, {
+        method: 'POST',
+        headers: {
+          cookie: req.headers.cookie ?? '',
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrfBody.csrfToken,
+        },
+        body: JSON.stringify({ _csrf: csrfBody.csrfToken }),
+        signal: logoutController.signal,
+      });
+    } finally {
+      clearTimeout(logoutTimeout);
+    }
 
     const setCookies = (
       upstream.headers as Headers & {
@@ -271,14 +320,22 @@ export async function proxyAuthLogout(
       res.setHeader('set-cookie', setCookies);
     }
 
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('[auth.remoteAuth] Session destruction failed:', err);
+        res.status(500).json({ error: 'Session destruction failed' });
+        return;
+      }
       res.json({ success: true });
     });
   } catch {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('[auth.remoteAuth] Session destruction failed:', err);
+        res.status(500).json({ error: 'Session destruction failed' });
+        return;
+      }
       res.status(502).json({ error: 'Auth service unavailable' });
     });
-  } finally {
-    clearTimeout(timeout);
   }
 }
