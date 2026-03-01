@@ -231,8 +231,6 @@ export function createAppSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_weapons_category ON weapons(product_category);
     CREATE INDEX IF NOT EXISTS idx_weapons_slot ON weapons(slot);
     CREATE INDEX IF NOT EXISTS idx_builds_user ON builds(user_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_builds_share_token ON builds(share_token);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_loadouts_share_token ON loadouts(share_token);
     CREATE INDEX IF NOT EXISTS idx_abilities_warframe ON abilities(warframe_unique_name);
   `);
 
@@ -359,6 +357,23 @@ export function createAppSchema(): void {
       console.log(`[DB] Migration: added ${m.table}.${m.column}`);
     }
     markMigration.run(m.id);
+  }
+
+  const hasColumn = db.prepare(
+    `SELECT 1
+       FROM pragma_table_info(?)
+      WHERE name = ?
+      LIMIT 1`,
+  );
+  if (hasColumn.get('builds', 'share_token')) {
+    db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_builds_share_token ON builds(share_token)',
+    );
+  }
+  if (hasColumn.get('loadouts', 'share_token')) {
+    db.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_loadouts_share_token ON loadouts(share_token)',
+    );
   }
 
   const ARCHON_MIGRATION_ID = '20260301_archon_shard_types_id_integer';
