@@ -99,6 +99,72 @@ function getEquipmentListUrl(type: EquipmentType): string {
   }
 }
 
+function getSetName(slot: ModSlot): string | undefined {
+  if (!slot.mod?.mod_set || !slot.mod.set_stats) return undefined;
+  return slot.mod.mod_set;
+}
+
+function clampSetRank(slot: ModSlot, rank: number): number {
+  const maxSetRank = slot.mod?.set_num_in_set ?? 1;
+  return Math.max(1, Math.min(maxSetRank, rank));
+}
+
+function applySetPieceDelta(
+  prevSlots: ModSlot[],
+  nextSlots: ModSlot[],
+): ModSlot[] {
+  const prevCounts = new Map<string, number>();
+  const prevRanks = new Map<string, number>();
+
+  for (const slot of prevSlots) {
+    const setName = getSetName(slot);
+    if (!setName) continue;
+    prevCounts.set(setName, (prevCounts.get(setName) ?? 0) + 1);
+    if (!prevRanks.has(setName)) {
+      prevRanks.set(setName, slot.setRank ?? 1);
+    }
+  }
+
+  const nextCounts = new Map<string, number>();
+  let updated = nextSlots.map((slot) => {
+    const setName = getSetName(slot);
+    if (!setName) return slot;
+    nextCounts.set(setName, (nextCounts.get(setName) ?? 0) + 1);
+    return slot.setRank == null ? { ...slot, setRank: 1 } : slot;
+  });
+
+  for (const [setName, nextCount] of nextCounts) {
+    const prevCount = prevCounts.get(setName) ?? 0;
+    if (prevCount === 0) continue;
+    const delta = nextCount - prevCount;
+    if (delta === 0) continue;
+
+    const baseRank = prevRanks.get(setName) ?? 1;
+    const targetRank = baseRank + delta;
+    updated = updated.map((slot) => {
+      if (getSetName(slot) !== setName) return slot;
+      const nextRank = clampSetRank(slot, targetRank);
+      return slot.setRank === nextRank ? slot : { ...slot, setRank: nextRank };
+    });
+  }
+
+  return updated;
+}
+
+function applySetRankDelta(
+  slots: ModSlot[],
+  setName: string,
+  delta: number,
+  fallbackRank: number,
+): ModSlot[] {
+  return slots.map((slot) => {
+    if (getSetName(slot) !== setName) return slot;
+    const currentRank = slot.setRank ?? fallbackRank;
+    const nextRank = clampSetRank(slot, currentRank + delta);
+    return slot.setRank === nextRank ? slot : { ...slot, setRank: nextRank };
+  });
+}
+
 export function ModBuilder() {
   const {
     buildId,
@@ -467,7 +533,7 @@ export function ModBuilder() {
           placedNewRiven.value = true;
         }
 
-        return prev.map((s) =>
+        const updated = prev.map((s) =>
           s.index === slotIndex
             ? {
                 ...s,
@@ -479,6 +545,7 @@ export function ModBuilder() {
               }
             : s,
         );
+        return applySetPieceDelta(prev, updated);
       });
       if (showRivenLimitToast.value) {
         setRivenToastMessage('Only one Riven mod can be equipped at a time.');
@@ -497,9 +564,22 @@ export function ModBuilder() {
 
   const handleSetRankChange = useCallback(
     (slotIndex: number, setRank: number) => {
-      setSlots((prev) =>
-        prev.map((s) => (s.index === slotIndex ? { ...s, setRank } : s)),
-      );
+      setSlots((prev) => {
+        const targetSlot = prev.find((s) => s.index === slotIndex);
+        if (!targetSlot) return prev;
+
+        const setName = getSetName(targetSlot);
+        if (!setName) {
+          return prev.map((s) =>
+            s.index === slotIndex ? { ...s, setRank } : s,
+          );
+        }
+
+        const currentRank = targetSlot.setRank ?? 1;
+        const delta = setRank - currentRank;
+        if (delta === 0) return prev;
+        return applySetRankDelta(prev, setName, delta, currentRank);
+      });
     },
     [],
   );
@@ -546,7 +626,7 @@ export function ModBuilder() {
         if (targetMod && isModLockedOut(targetMod, [...otherMods, sourceMod]))
           return prev;
 
-        return prev.map((s) => {
+        const swapped = prev.map((s) => {
           if (s.index === targetIndex)
             return {
               ...s,
@@ -567,14 +647,15 @@ export function ModBuilder() {
             };
           return s;
         });
+        return applySetPieceDelta(prev, swapped);
       });
     },
     [],
   );
 
   const handleModRemove = useCallback((slotIndex: number) => {
-    setSlots((prev) =>
-      prev.map((s) =>
+    setSlots((prev) => {
+      const updated = prev.map((s) =>
         s.index === slotIndex
           ? {
               ...s,
@@ -585,8 +666,9 @@ export function ModBuilder() {
               riven_art_path: undefined,
             }
           : s,
-      ),
-    );
+      );
+      return applySetPieceDelta(prev, updated);
+    });
   }, []);
 
   const handleRankChange = useCallback((slotIndex: number, rank: number) => {

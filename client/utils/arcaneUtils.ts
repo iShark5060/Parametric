@@ -1,4 +1,4 @@
-import { sanitizeDisplayText } from './sanitizeDisplayText';
+import { sanitizeDisplayTextKeepDamageTokens } from './damageTypeTokens';
 import type { Arcane } from '../components/ModBuilder/ArcaneSlots';
 
 export function getMaxRank(arcane: Arcane): number {
@@ -22,9 +22,12 @@ export function getArcaneDescription(arcane: Arcane, rank?: number): string {
           rank != null ? Math.min(rank, stats.length - 1) : stats.length - 1;
         const entry = stats[idx];
         if (typeof entry === 'object' && entry.stats) {
-          return sanitizeDisplayText((entry.stats as string[]).join(' '));
+          return sanitizeDisplayTextKeepDamageTokens(
+            (entry.stats as string[]).join(' '),
+          );
         }
-        if (typeof entry === 'string') return sanitizeDisplayText(entry);
+        if (typeof entry === 'string')
+          return sanitizeDisplayTextKeepDamageTokens(entry);
       }
     }
   } catch {

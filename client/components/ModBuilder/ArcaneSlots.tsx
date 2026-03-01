@@ -1,6 +1,10 @@
 import { useRef } from 'react';
 
 import { getMaxRank, getArcaneDescription } from '../../utils/arcaneUtils';
+import {
+  getDamageTypeIconPath,
+  splitDisplayTextByDamageTokens,
+} from '../../utils/damageTypeTokens';
 import { GlassTooltip } from '../GlassTooltip';
 import { ArcaneCardPreview } from '../ModCard/ArcaneCardPreview';
 import { DEFAULT_ARCANE_LAYOUT } from '../ModCard/cardLayout';
@@ -100,6 +104,30 @@ function ArcaneSlotCell({
   const slotRef = useRef<HTMLDivElement>(null);
 
   const desc = arcane ? getArcaneDescription(arcane, slot.rank) : '';
+  const renderDamageText = (text: string): React.ReactNode =>
+    splitDisplayTextByDamageTokens(text).map((segment, segmentIndex) => {
+      if (segment.kind === 'text') {
+        return <span key={`t-${segmentIndex}`}>{segment.value}</span>;
+      }
+      const iconPath = getDamageTypeIconPath(segment.value);
+      if (!iconPath)
+        return <span key={`u-${segmentIndex}`}>{segment.value}</span>;
+      return (
+        <img
+          key={`i-${segmentIndex}`}
+          src={iconPath}
+          alt={segment.value}
+          className="mx-[0.08em] inline-block"
+          style={{
+            width: 12,
+            height: 12,
+            verticalAlign: '-0.12em',
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.7))',
+          }}
+          draggable={false}
+        />
+      );
+    });
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -129,7 +157,9 @@ function ArcaneSlotCell({
         <div className="mb-1 text-xs font-semibold text-foreground">
           {arcane.name}
         </div>
-        <div className="text-[10px] leading-tight text-muted">{desc}</div>
+        <div className="text-[10px] leading-tight text-muted">
+          {renderDamageText(desc)}
+        </div>
       </>
     ) : null;
 
