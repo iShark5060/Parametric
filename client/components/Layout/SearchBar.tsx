@@ -25,9 +25,11 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
 export function SearchBar() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,27 +45,55 @@ export function SearchBar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
+
   const search = useCallback(
     debounce(async (term: string) => {
+      abortControllerRef.current?.abort();
+
       if (!term || term.length < 2) {
+        setLoading(false);
         setResults([]);
+        setSearchError(null);
         setOpen(false);
         return;
       }
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setLoading(true);
+      setSearchError(null);
       try {
         const response = await apiFetch(
           `/api/search?q=${encodeURIComponent(term)}&limit=20`,
+          { signal: controller.signal },
         );
         const body = (await response.json()) as { items?: SearchResult[] };
         const items = Array.isArray(body.items) ? body.items : [];
+        if (controller.signal.aborted) return;
         setResults(items);
         setOpen(items.length > 0);
-      } catch {
+      } catch (e) {
+        if (
+          controller.signal.aborted ||
+          (e instanceof DOMException && e.name === 'AbortError')
+        ) {
+          return;
+        }
+        console.error('Search request failed', e);
+        setSearchError('Search failed');
         setResults([]);
+        setOpen(true);
       } finally {
-        setLoading(false);
+        if (abortControllerRef.current === controller) {
+          setLoading(false);
+        }
       }
     }, 300),
     [],
@@ -106,6 +136,7 @@ export function SearchBar() {
             onClick={() => {
               setQuery('');
               setResults([]);
+              setSearchError(null);
               setOpen(false);
             }}
           >
@@ -119,6 +150,10 @@ export function SearchBar() {
           {loading ? (
             <div className="p-3 text-center text-sm text-muted">
               Searching…
+            </div>
+          ) : searchError ? (
+            <div className="p-3 text-center text-sm text-muted">
+              {searchError}
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto custom-scroll">

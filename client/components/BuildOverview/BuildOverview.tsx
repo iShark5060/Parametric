@@ -300,7 +300,7 @@ function BuildRow({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {hasLoadouts && (
           <button
             className="rounded-lg p-1.5 text-xs text-muted/60 hover:bg-accent/10 hover:text-accent"
@@ -350,6 +350,7 @@ function LoadoutRow({
         className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-all hover:bg-glass-hover"
         onClick={() => setExpanded(!expanded)}
         role="button"
+        aria-expanded={expanded}
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -368,7 +369,7 @@ function LoadoutRow({
           </span>
         </div>
         <button
-          className="shrink-0 rounded-lg p-1.5 text-xs text-muted/40 opacity-0 hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+          className="shrink-0 rounded-lg p-1.5 text-xs text-muted/40 opacity-0 hover:bg-danger/10 hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();

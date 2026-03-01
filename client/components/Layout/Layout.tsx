@@ -267,6 +267,7 @@ export function Layout() {
       </header>
       <main
         id="main-content"
+        tabIndex={-1}
         className={`relative z-10 flex-1 px-6 pb-6 ${compareBarVisible ? 'pb-24' : ''}`}
       >
         <Outlet />

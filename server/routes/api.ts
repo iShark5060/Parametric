@@ -26,7 +26,7 @@ apiRouter.get('/warframes', (_req: Request, res: Response) => {
     const rows = db.prepare('SELECT * FROM warframes ORDER BY name').all();
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'warframes.list', err);
   }
 });
 
@@ -40,6 +40,13 @@ const WEAPON_JUNK_PREFIXES = [
   '/Lotus/Types/Items/Deimos/',
   '/Lotus/Types/Vehicles/Hoverboard/',
 ];
+
+const WEAPON_CATEGORY_TO_TYPE: Record<string, string> = {
+  Pistols: 'secondary',
+  Melee: 'melee',
+  SpaceGuns: 'archgun',
+  SpaceMelee: 'archmelee',
+};
 
 apiRouter.get('/weapons', (req: Request, res: Response) => {
   try {
@@ -64,7 +71,7 @@ apiRouter.get('/weapons', (req: Request, res: Response) => {
 
     res.json({ items: filtered });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'weapons.list', err);
   }
 });
 
@@ -74,7 +81,7 @@ apiRouter.get('/companions', (_req: Request, res: Response) => {
     const rows = db.prepare('SELECT * FROM companions ORDER BY name').all();
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'companions.list', err);
   }
 });
 
@@ -93,12 +100,13 @@ apiRouter.get('/search', (req: Request, res: Response) => {
       return;
     }
 
-    const like = `%${term}%`;
+    const escapedTerm = term.replace(/[%_]/g, '\\$&');
+    const like = `%${escapedTerm}%`;
     const warframes = db
       .prepare(
         `SELECT name, unique_name, image_path, product_category
          FROM warframes
-         WHERE lower(name) LIKE ?
+         WHERE lower(name) LIKE ? ESCAPE '\\'
          LIMIT ?`,
       )
       .all(like, limit) as Array<{
@@ -111,7 +119,7 @@ apiRouter.get('/search', (req: Request, res: Response) => {
       .prepare(
         `SELECT name, unique_name, image_path, product_category
          FROM weapons
-         WHERE lower(name) LIKE ?
+         WHERE lower(name) LIKE ? ESCAPE '\\'
          LIMIT ?`,
       )
       .all(like, limit) as Array<{
@@ -124,7 +132,7 @@ apiRouter.get('/search', (req: Request, res: Response) => {
       .prepare(
         `SELECT name, unique_name, image_path
          FROM companions
-         WHERE lower(name) LIKE ?
+         WHERE lower(name) LIKE ? ESCAPE '\\'
          LIMIT ?`,
       )
       .all(like, limit) as Array<{
@@ -152,15 +160,7 @@ apiRouter.get('/search', (req: Request, res: Response) => {
         unique_name: item.unique_name,
         image_path: item.image_path ?? undefined,
         equipment_type:
-          item.product_category === 'Pistols'
-            ? 'secondary'
-            : item.product_category === 'Melee'
-              ? 'melee'
-              : item.product_category === 'SpaceGuns'
-                ? 'archgun'
-                : item.product_category === 'SpaceMelee'
-                  ? 'archmelee'
-                  : 'primary',
+          WEAPON_CATEGORY_TO_TYPE[item.product_category ?? ''] ?? 'primary',
       })),
       ...companions.map((item) => ({
         category: 'Companions',
@@ -175,7 +175,7 @@ apiRouter.get('/search', (req: Request, res: Response) => {
 
     res.json({ items });
   } catch (err) {
-    sendInternalError(res, 'search', err);
+    sendInternalError(res, 'search.query', err);
   }
 });
 
@@ -211,6 +211,92 @@ const archonShardTypeUpdateSchema = z.object({
   icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
   tauforged_icon_path: z.union([z.string().trim().min(1), z.null()]).optional(),
   sort_order: z.number().int().min(0).max(999).optional(),
+});
+
+const EquipmentTypeSchema = z.enum([
+  'warframe',
+  'primary',
+  'secondary',
+  'melee',
+  'archgun',
+  'archmelee',
+  'companion',
+  'archwing',
+  'necramech',
+  'kdrive',
+]);
+
+const ModConfigSchema = z.object({
+  id: z.string().trim().min(1).optional(),
+  name: z.string().trim().min(1).max(MAX_NAME_LENGTH),
+  equipment_type: EquipmentTypeSchema,
+  equipment_unique_name: z.string().trim().min(1),
+  slots: z.array(
+    z
+      .object({
+        index: z.number().int().min(0),
+        type: z.enum(['general', 'aura', 'stance', 'exilus', 'posture']),
+        polarity: z.string().trim().min(1).optional(),
+        mod: z.record(z.string(), z.unknown()).optional(),
+        rank: z.number().int().min(0).optional(),
+        setRank: z.number().int().min(0).optional(),
+        riven_art_path: z.string().trim().min(1).optional(),
+        riven_config: z
+          .object({
+            polarity: z.enum(['AP_ATTACK', 'AP_TACTIC', 'AP_DEFENSE']).optional(),
+            positive: z.array(
+              z.object({
+                stat: z.string().trim().min(1),
+                value: z.number().finite(),
+                isNegative: z.boolean(),
+              }),
+            ),
+            negative: z
+              .object({
+                stat: z.string().trim().min(1),
+                value: z.number().finite(),
+                isNegative: z.boolean(),
+              })
+              .optional(),
+          })
+          .optional(),
+      })
+      .passthrough(),
+  ),
+  helminth: z
+    .object({
+      replaced_ability_index: z.number().int().min(0),
+      replacement_ability_unique_name: z.string().trim().min(1),
+    })
+    .optional(),
+  arcaneSlots: z
+    .array(
+      z.object({
+        arcane: z
+          .object({
+            unique_name: z.string().trim().min(1),
+            name: z.string().trim().min(1),
+            rarity: z.string().trim().min(1).optional(),
+            image_path: z.string().trim().min(1).optional(),
+            level_stats: z.string().trim().min(1).optional(),
+          })
+          .optional(),
+        rank: z.number().int().min(0),
+      }),
+    )
+    .optional(),
+  shardSlots: z
+    .array(
+      z.object({
+        shard_type_id: z.string().trim().min(1).optional(),
+        buff_id: z.number().int().positive().optional(),
+        tauforged: z.boolean(),
+      }),
+    )
+    .optional(),
+  orokinReactor: z.boolean().optional(),
+  equipment_name: z.string().trim().min(1).optional(),
+  equipment_image: z.string().trim().min(1).optional(),
 });
 
 function parseNumericId(raw: string | string[] | undefined): number | null {
@@ -346,7 +432,7 @@ apiRouter.get('/mods', (req: Request, res: Response) => {
 
     res.json({ items: Array.from(byKey.values()) });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'mods.list', err);
   }
 });
 
@@ -370,7 +456,7 @@ apiRouter.get('/mods/:uniqueName', (req: Request, res: Response) => {
 
     res.json({ mod, levelStats });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'mods.getByUniqueName', err);
   }
 });
 
@@ -384,7 +470,7 @@ apiRouter.get('/arcanes', (_req: Request, res: Response) => {
       .all();
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'arcanes.list', err);
   }
 });
 
@@ -422,7 +508,7 @@ apiRouter.get('/abilities', (req: Request, res: Response) => {
     }
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'abilities.list', err);
   }
 });
 
@@ -436,7 +522,7 @@ apiRouter.get('/helminth-abilities', (_req: Request, res: Response) => {
       .all();
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'helminthAbilities.list', err);
   }
 });
 
@@ -461,7 +547,7 @@ apiRouter.get('/riven-stats', (req: Request, res: Response) => {
     const rows = db.prepare(sql).all(...params);
     res.json({ items: rows });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'rivenStats.list', err);
   }
 });
 
@@ -482,7 +568,7 @@ apiRouter.get('/archon-shards', (_req: Request, res: Response) => {
 
     res.json({ shards: result });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'archonShards.list', err);
   }
 });
 
@@ -517,7 +603,7 @@ apiRouter.put(
       ).run(name, icon_path, tauforged_icon_path, sort_order, typeId);
       res.json({ success: true });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'archonShards.types.update', err);
     }
   },
 );
@@ -543,7 +629,7 @@ apiRouter.post(
       ).run(name, icon_path, tauforged_icon_path, sort_order);
       res.json({ success: true });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'archonShards.types.create', err);
     }
   },
 );
@@ -585,7 +671,7 @@ apiRouter.post(
         );
       res.json({ success: true, id: result.lastInsertRowid });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'archonShards.buffs.create', err);
     }
   },
 );
@@ -629,7 +715,7 @@ apiRouter.put(
       );
       res.json({ success: true });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'archonShards.buffs.update', err);
     }
   },
 );
@@ -648,7 +734,7 @@ apiRouter.delete(
       db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(buffId);
       res.json({ success: true });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'archonShards.buffs.delete', err);
     }
   },
 );
@@ -672,7 +758,7 @@ apiRouter.get('/loadouts', (req: Request, res: Response) => {
     }
     res.json({ loadouts });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'loadouts.list', err);
   }
 });
 
@@ -709,8 +795,6 @@ apiRouter.get('/loadouts/:id', (req: Request, res: Response) => {
         ...loadout,
         builds: links,
       },
-      can_edit: loadout.user_id === req.session.user_id,
-      owner_user_id: loadout.user_id,
     });
   } catch (err) {
     sendInternalError(res, 'loadouts.getById', err);
@@ -741,7 +825,7 @@ apiRouter.post('/loadouts', (req: Request, res: Response) => {
       .run(req.session.user_id, sanitizedName);
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'loadouts.create', err);
   }
 });
 
@@ -772,7 +856,7 @@ apiRouter.put('/loadouts/:id', (req: Request, res: Response) => {
     ).run(trimmedName, parsedId, req.session.user_id);
     res.json({ success: true });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'loadouts.update', err);
   }
 });
 
@@ -933,7 +1017,7 @@ apiRouter.post('/loadouts/:id/builds', (req: Request, res: Response) => {
     }
     res.json({ success: true });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'loadouts.addBuild', err);
   }
 });
 
@@ -956,7 +1040,7 @@ apiRouter.delete(
       ).run(loadoutId, req.params.slotType, loadoutId, req.session.user_id);
       res.json({ success: true });
     } catch (err) {
-      sendInternalError(res, 'request', err);
+      sendInternalError(res, 'loadouts.removeBuild', err);
     }
   },
 );
@@ -979,7 +1063,7 @@ apiRouter.get('/builds', (req: Request, res: Response) => {
 
     res.json({ builds });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'builds.list', err);
   }
 });
 
@@ -1010,7 +1094,6 @@ apiRouter.get('/builds/:id', (req: Request, res: Response) => {
 
     res.json({
       build: toBuildResponse(row),
-      can_edit: row.user_id === req.session.user_id,
       owner_user_id: row.user_id,
     });
   } catch (err) {
@@ -1028,12 +1111,18 @@ apiRouter.post('/builds', (req: Request, res: Response) => {
 
     const { name, equipment_type, equipment_unique_name, mod_config } =
       req.body;
+
+    const modConfigResult = ModConfigSchema.safeParse(mod_config);
     if (
       typeof name !== 'string' ||
       typeof equipment_type !== 'string' ||
       typeof equipment_unique_name !== 'string' ||
-      !mod_config
+      !modConfigResult.success
     ) {
+      if (!modConfigResult.success) {
+        res.status(400).json({ error: 'Invalid mod_config' });
+        return;
+      }
       res.status(400).json({ error: 'Invalid build payload' });
       return;
     }
@@ -1048,12 +1137,12 @@ apiRouter.post('/builds', (req: Request, res: Response) => {
         name,
         equipment_type,
         equipment_unique_name,
-        JSON.stringify(mod_config),
+        JSON.stringify(modConfigResult.data),
       );
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'builds.create', err);
   }
 });
 
@@ -1083,7 +1172,7 @@ apiRouter.put('/builds/:id', (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'builds.update', err);
   }
 });
 
@@ -1106,7 +1195,7 @@ apiRouter.delete('/builds/:id', (req: Request, res: Response) => {
     );
     res.json({ success: true });
   } catch (err) {
-    sendInternalError(res, 'request', err);
+    sendInternalError(res, 'builds.delete', err);
   }
 });
 

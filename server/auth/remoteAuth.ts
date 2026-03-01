@@ -60,7 +60,11 @@ export interface RemoteAuthState {
 }
 
 function getAppPublicBaseUrl(): string {
-  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
+  return APP_PUBLIC_BASE_URL_PARSED;
+}
+
+function parseAppPublicBaseUrl(rawValue: string | undefined): string {
+  const configuredBase = rawValue?.trim();
   if (!configuredBase) {
     throw new Error('APP_PUBLIC_BASE_URL must be set.');
   }
@@ -82,6 +86,10 @@ function getAppPublicBaseUrl(): string {
   }
   return parsed.toString().replace(/\/+$/, '');
 }
+
+const APP_PUBLIC_BASE_URL_PARSED = parseAppPublicBaseUrl(
+  process.env.APP_PUBLIC_BASE_URL,
+);
 
 function isSafeRelativePath(nextPath: string): boolean {
   return (
@@ -252,18 +260,26 @@ export async function proxyAuthLogout(
   const authBase = resolveAuthServiceUrl(req);
   const csrfUrl = `${authBase}/api/auth/csrf`;
   const logoutUrl = `${authBase}/api/auth/logout`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
 
   try {
-    const csrfResponse = await fetch(csrfUrl, {
-      method: 'GET',
-      headers: {
-        cookie: req.headers.cookie ?? '',
-        accept: 'application/json',
-      },
-      signal: controller.signal,
-    });
+    const csrfController = new AbortController();
+    const csrfTimeout = setTimeout(
+      () => csrfController.abort(),
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    let csrfResponse: globalThis.Response;
+    try {
+      csrfResponse = await fetch(csrfUrl, {
+        method: 'GET',
+        headers: {
+          cookie: req.headers.cookie ?? '',
+          accept: 'application/json',
+        },
+        signal: csrfController.signal,
+      });
+    } finally {
+      clearTimeout(csrfTimeout);
+    }
     if (!csrfResponse.ok) {
       throw new Error('Failed to fetch CSRF token for logout');
     }
@@ -272,17 +288,27 @@ export async function proxyAuthLogout(
       throw new Error('Missing CSRF token for logout');
     }
 
-    const upstream = await fetch(logoutUrl, {
-      method: 'POST',
-      headers: {
-        cookie: req.headers.cookie ?? '',
-        accept: 'application/json',
-        'content-type': 'application/json',
-        'x-csrf-token': csrfBody.csrfToken,
-      },
-      body: JSON.stringify({ _csrf: csrfBody.csrfToken }),
-      signal: controller.signal,
-    });
+    const logoutController = new AbortController();
+    const logoutTimeout = setTimeout(
+      () => logoutController.abort(),
+      AUTH_FETCH_TIMEOUT_MS,
+    );
+    let upstream: globalThis.Response;
+    try {
+      upstream = await fetch(logoutUrl, {
+        method: 'POST',
+        headers: {
+          cookie: req.headers.cookie ?? '',
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrfBody.csrfToken,
+        },
+        body: JSON.stringify({ _csrf: csrfBody.csrfToken }),
+        signal: logoutController.signal,
+      });
+    } finally {
+      clearTimeout(logoutTimeout);
+    }
 
     const setCookies = (
       upstream.headers as Headers & {
@@ -294,14 +320,22 @@ export async function proxyAuthLogout(
       res.setHeader('set-cookie', setCookies);
     }
 
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('[auth.remoteAuth] Session destruction failed:', err);
+        res.status(500).json({ error: 'Session destruction failed' });
+        return;
+      }
       res.json({ success: true });
     });
   } catch {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('[auth.remoteAuth] Session destruction failed:', err);
+        res.status(500).json({ error: 'Session destruction failed' });
+        return;
+      }
       res.status(502).json({ error: 'Auth service unavailable' });
     });
-  } finally {
-    clearTimeout(timeout);
   }
 }

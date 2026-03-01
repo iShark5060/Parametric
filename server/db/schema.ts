@@ -194,7 +194,7 @@ export function createAppSchema(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      visibility TEXT NOT NULL DEFAULT 'private',
+      visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'unlisted')),
       share_token TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -214,7 +214,7 @@ export function createAppSchema(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      visibility TEXT NOT NULL DEFAULT 'private',
+      visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'unlisted')),
       share_token TEXT,
       equipment_type TEXT NOT NULL,       -- warframe, primary, secondary, melee, etc.
       equipment_unique_name TEXT NOT NULL,
@@ -318,7 +318,7 @@ export function createAppSchema(): void {
       id: '20260301_builds_visibility',
       table: 'builds',
       column: 'visibility',
-      sql: "ALTER TABLE builds ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+      sql: "ALTER TABLE builds ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'unlisted'))",
     },
     {
       id: '20260301_builds_share_token',
@@ -330,7 +330,7 @@ export function createAppSchema(): void {
       id: '20260301_loadouts_visibility',
       table: 'loadouts',
       column: 'visibility',
-      sql: "ALTER TABLE loadouts ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+      sql: "ALTER TABLE loadouts ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'unlisted'))",
     },
     {
       id: '20260301_loadouts_share_token',
@@ -339,9 +339,17 @@ export function createAppSchema(): void {
       sql: 'ALTER TABLE loadouts ADD COLUMN share_token TEXT',
     },
   ];
+  const ALLOWED_MIGRATION_TABLES = new Set(
+    migrations.map((migration) => migration.table),
+  );
   for (const m of migrations) {
     if (hasMigration.get(m.id)) {
       continue;
+    }
+    if (!ALLOWED_MIGRATION_TABLES.has(m.table)) {
+      throw new Error(
+        `[DB] Migration ${m.id} references unexpected table: ${m.table}`,
+      );
     }
     const cols = db.prepare(`PRAGMA table_info(${m.table})`).all() as {
       name: string;
@@ -353,114 +361,111 @@ export function createAppSchema(): void {
     markMigration.run(m.id);
   }
 
-  db.exec(
-    'CREATE UNIQUE INDEX IF NOT EXISTS idx_builds_share_token ON builds(share_token)',
-  );
-  db.exec(
-    'CREATE UNIQUE INDEX IF NOT EXISTS idx_loadouts_share_token ON loadouts(share_token)',
-  );
-
-  const archonCols = db
-    .prepare('PRAGMA table_info(archon_shard_types)')
-    .all() as {
-    name: string;
-    type: string;
-  }[];
-  const idCol = archonCols.find((c) => c.name === 'id');
-  if (idCol && idCol.type.toUpperCase() === 'TEXT') {
-    try {
-      db.transaction(() => {
-        db.exec(`
-        CREATE TABLE archon_shard_types_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          icon_path TEXT NOT NULL,
-          tauforged_icon_path TEXT NOT NULL,
-          sort_order INTEGER DEFAULT 0
-        );
-      `);
-        const oldTypes = db
-          .prepare(
-            'SELECT id, name, icon_path, tauforged_icon_path, sort_order FROM archon_shard_types ORDER BY sort_order, name',
-          )
-          .all() as {
-          id: string;
-          name: string;
-          icon_path: string;
-          tauforged_icon_path: string;
-          sort_order: number;
-        }[];
-        const insertType = db.prepare(
-          'INSERT INTO archon_shard_types_new (name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?)',
-        );
-        const typeIdMap = new Map<string, number>();
-        for (const row of oldTypes) {
-          const result = insertType.run(
-            row.name,
-            row.icon_path,
-            row.tauforged_icon_path,
-            row.sort_order,
+  const ARCHON_MIGRATION_ID = '20260301_archon_shard_types_id_integer';
+  if (!hasMigration.get(ARCHON_MIGRATION_ID)) {
+    const archonCols = db
+      .prepare('PRAGMA table_info(archon_shard_types)')
+      .all() as {
+      name: string;
+      type: string;
+    }[];
+    const idCol = archonCols.find((c) => c.name === 'id');
+    if (idCol && idCol.type.toUpperCase() === 'TEXT') {
+      try {
+        db.transaction(() => {
+          db.exec(`
+          CREATE TABLE archon_shard_types_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            icon_path TEXT NOT NULL,
+            tauforged_icon_path TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0
           );
-          typeIdMap.set(
-            row.id,
-            (result as { lastInsertRowid: number }).lastInsertRowid,
+        `);
+          const oldTypes = db
+            .prepare(
+              'SELECT id, name, icon_path, tauforged_icon_path, sort_order FROM archon_shard_types ORDER BY sort_order, name',
+            )
+            .all() as {
+            id: string;
+            name: string;
+            icon_path: string;
+            tauforged_icon_path: string;
+            sort_order: number;
+          }[];
+          const insertType = db.prepare(
+            'INSERT INTO archon_shard_types_new (name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?)',
           );
-        }
-        const oldBuffs = db
-          .prepare(
-            'SELECT shard_type_id, description, base_value, tauforged_value, value_format, sort_order FROM archon_shard_buffs',
-          )
-          .all() as {
-          shard_type_id: string;
-          description: string;
-          base_value: number;
-          tauforged_value: number;
-          value_format: string;
-          sort_order: number;
-        }[];
-        db.exec(`DROP TABLE archon_shard_buffs`);
-        db.exec(`DROP TABLE archon_shard_types`);
-        db.exec(
-          `ALTER TABLE archon_shard_types_new RENAME TO archon_shard_types`,
-        );
-        db.exec(`
-        CREATE TABLE archon_shard_buffs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          shard_type_id INTEGER NOT NULL,
-          description TEXT NOT NULL,
-          base_value REAL NOT NULL,
-          tauforged_value REAL NOT NULL,
-          value_format TEXT DEFAULT '%',
-          sort_order INTEGER DEFAULT 0,
-          FOREIGN KEY (shard_type_id) REFERENCES archon_shard_types(id)
-        );
-      `);
-        const insertBuff = db.prepare(
-          'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-        );
-        for (const row of oldBuffs) {
-          const newTypeId = typeIdMap.get(row.shard_type_id);
-          if (newTypeId === undefined) {
-            const msg = `Migration failed: archon_shard_buffs row has unmapped shard_type_id "${row.shard_type_id}" (typeIdMap has no mapping; oldBuffs/insertBuff migration cannot proceed)`;
-            console.error(`[DB] ${msg}`);
-            throw new Error(msg);
+          const typeIdMap = new Map<string, number>();
+          for (const row of oldTypes) {
+            const result = insertType.run(
+              row.name,
+              row.icon_path,
+              row.tauforged_icon_path,
+              row.sort_order,
+            );
+            typeIdMap.set(
+              row.id,
+              (result as { lastInsertRowid: number }).lastInsertRowid,
+            );
           }
-          insertBuff.run(
-            newTypeId,
-            row.description,
-            row.base_value,
-            row.tauforged_value,
-            row.value_format,
-            row.sort_order,
+          const oldBuffs = db
+            .prepare(
+              'SELECT shard_type_id, description, base_value, tauforged_value, value_format, sort_order FROM archon_shard_buffs',
+            )
+            .all() as {
+            shard_type_id: string;
+            description: string;
+            base_value: number;
+            tauforged_value: number;
+            value_format: string;
+            sort_order: number;
+          }[];
+          db.exec(`DROP TABLE archon_shard_buffs`);
+          db.exec(`DROP TABLE archon_shard_types`);
+          db.exec(
+            `ALTER TABLE archon_shard_types_new RENAME TO archon_shard_types`,
           );
-        }
-      })();
-      console.log(
-        '[DB] Migration: archon_shard_types id TEXT -> INTEGER AUTOINCREMENT',
-      );
-    } catch (err) {
-      console.error('[DB] Migration failed, rolled back:', err);
-      throw err;
+          db.exec(`
+          CREATE TABLE archon_shard_buffs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shard_type_id INTEGER NOT NULL,
+            description TEXT NOT NULL,
+            base_value REAL NOT NULL,
+            tauforged_value REAL NOT NULL,
+            value_format TEXT DEFAULT '%',
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (shard_type_id) REFERENCES archon_shard_types(id)
+          );
+        `);
+          const insertBuff = db.prepare(
+            'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+          );
+          for (const row of oldBuffs) {
+            const newTypeId = typeIdMap.get(row.shard_type_id);
+            if (newTypeId === undefined) {
+              const msg = `Migration failed: archon_shard_buffs row has unmapped shard_type_id "${row.shard_type_id}" (typeIdMap has no mapping; oldBuffs/insertBuff migration cannot proceed)`;
+              console.error(`[DB] ${msg}`);
+              throw new Error(msg);
+            }
+            insertBuff.run(
+              newTypeId,
+              row.description,
+              row.base_value,
+              row.tauforged_value,
+              row.value_format,
+              row.sort_order,
+            );
+          }
+        })();
+        markMigration.run(ARCHON_MIGRATION_ID);
+        console.log(
+          '[DB] Migration: archon_shard_types id TEXT -> INTEGER AUTOINCREMENT',
+        );
+      } catch (err) {
+        console.error('[DB] Migration failed, rolled back:', err);
+        throw err;
+      }
     }
   }
 
