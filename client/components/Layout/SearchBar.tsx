@@ -148,9 +148,7 @@ export function SearchBar() {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-xl border border-glass-border bg-surface-modal shadow-lg backdrop-blur-xl">
           {loading ? (
-            <div className="p-3 text-center text-sm text-muted">
-              Searching…
-            </div>
+            <div className="p-3 text-center text-sm text-muted">Searching…</div>
           ) : searchError ? (
             <div className="p-3 text-center text-sm text-muted">
               {searchError}

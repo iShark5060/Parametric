@@ -243,7 +243,9 @@ const ModConfigSchema = z.object({
         riven_art_path: z.string().trim().min(1).optional(),
         riven_config: z
           .object({
-            polarity: z.enum(['AP_ATTACK', 'AP_TACTIC', 'AP_DEFENSE']).optional(),
+            polarity: z
+              .enum(['AP_ATTACK', 'AP_TACTIC', 'AP_DEFENSE'])
+              .optional(),
             positive: z.array(
               z.object({
                 stat: z.string().trim().min(1),
@@ -346,11 +348,7 @@ function toBuildResponse(row: BuildRow): Record<string, unknown> {
   };
 }
 
-function sendInternalError(
-  res: Response,
-  context: string,
-  err: unknown,
-): void {
+function sendInternalError(res: Response, context: string, err: unknown): void {
   console.error(`[API] ${context} failed:`, err);
   res.status(500).json({ error: 'Internal server error' });
 }
