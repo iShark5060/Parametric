@@ -139,6 +139,12 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-black focus:px-3 focus:py-2 focus:text-white"
+      >
+        Skip to main content
+      </a>
       <div className="bg-art" aria-hidden="true">
         {bgArt}
       </div>
@@ -260,6 +266,7 @@ export function Layout() {
         </div>
       </header>
       <main
+        id="main-content"
         className={`relative z-10 flex-1 px-6 pb-6 ${compareBarVisible ? 'pb-24' : ''}`}
       >
         <Outlet />

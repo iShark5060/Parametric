@@ -2,6 +2,18 @@ import { getDb } from './connection.js';
 
 export function createAppSchema(): void {
   const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  const hasMigration = db.prepare(
+    'SELECT 1 FROM schema_migrations WHERE id = ?',
+  );
+  const markMigration = db.prepare(
+    'INSERT OR IGNORE INTO schema_migrations (id) VALUES (?)',
+  );
 
   db.exec(`
     -- Warframes (includes Archwings, Necramechs)
@@ -182,6 +194,8 @@ export function createAppSchema(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      share_token TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -200,6 +214,8 @@ export function createAppSchema(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
       name TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      share_token TEXT,
       equipment_type TEXT NOT NULL,       -- warframe, primary, secondary, melee, etc.
       equipment_unique_name TEXT NOT NULL,
       mod_config TEXT NOT NULL,           -- JSON: full mod configuration
@@ -215,72 +231,118 @@ export function createAppSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_weapons_category ON weapons(product_category);
     CREATE INDEX IF NOT EXISTS idx_weapons_slot ON weapons(slot);
     CREATE INDEX IF NOT EXISTS idx_builds_user ON builds(user_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_builds_share_token ON builds(share_token);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_loadouts_share_token ON loadouts(share_token);
     CREATE INDEX IF NOT EXISTS idx_abilities_warframe ON abilities(warframe_unique_name);
   `);
 
-  const migrations = [
+  const migrations: Array<{
+    id: string;
+    table: string;
+    column: string;
+    sql: string;
+  }> = [
     {
+      id: '20260301_abilities_image_path',
       table: 'abilities',
       column: 'image_path',
       sql: 'ALTER TABLE abilities ADD COLUMN image_path TEXT',
     },
     {
+      id: '20260301_mods_mod_set',
       table: 'mods',
       column: 'mod_set',
       sql: 'ALTER TABLE mods ADD COLUMN mod_set TEXT REFERENCES mod_sets(unique_name)',
     },
     {
+      id: '20260301_warframes_artifact_slots',
       table: 'warframes',
       column: 'artifact_slots',
       sql: 'ALTER TABLE warframes ADD COLUMN artifact_slots TEXT',
     },
     {
+      id: '20260301_weapons_artifact_slots',
       table: 'weapons',
       column: 'artifact_slots',
       sql: 'ALTER TABLE weapons ADD COLUMN artifact_slots TEXT',
     },
     {
+      id: '20260301_weapons_fire_behaviors',
       table: 'weapons',
       column: 'fire_behaviors',
       sql: 'ALTER TABLE weapons ADD COLUMN fire_behaviors TEXT',
     },
     {
+      id: '20260301_weapons_riven_disposition',
       table: 'weapons',
       column: 'riven_disposition',
       sql: 'ALTER TABLE weapons ADD COLUMN riven_disposition REAL',
     },
     {
+      id: '20260301_abilities_ability_stats',
       table: 'abilities',
       column: 'ability_stats',
       sql: 'ALTER TABLE abilities ADD COLUMN ability_stats TEXT',
     },
     {
+      id: '20260301_companions_artifact_slots',
       table: 'companions',
       column: 'artifact_slots',
       sql: 'ALTER TABLE companions ADD COLUMN artifact_slots TEXT',
     },
     {
+      id: '20260301_abilities_wiki_stats',
       table: 'abilities',
       column: 'wiki_stats',
       sql: 'ALTER TABLE abilities ADD COLUMN wiki_stats TEXT',
     },
     {
+      id: '20260301_abilities_energy_cost',
       table: 'abilities',
       column: 'energy_cost',
       sql: 'ALTER TABLE abilities ADD COLUMN energy_cost INTEGER',
     },
     {
+      id: '20260301_warframes_passive_description_wiki',
       table: 'warframes',
       column: 'passive_description_wiki',
       sql: 'ALTER TABLE warframes ADD COLUMN passive_description_wiki TEXT',
     },
     {
+      id: '20260301_mods_augment_for_ability',
       table: 'mods',
       column: 'augment_for_ability',
       sql: 'ALTER TABLE mods ADD COLUMN augment_for_ability TEXT',
     },
+    {
+      id: '20260301_builds_visibility',
+      table: 'builds',
+      column: 'visibility',
+      sql: "ALTER TABLE builds ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+    },
+    {
+      id: '20260301_builds_share_token',
+      table: 'builds',
+      column: 'share_token',
+      sql: 'ALTER TABLE builds ADD COLUMN share_token TEXT',
+    },
+    {
+      id: '20260301_loadouts_visibility',
+      table: 'loadouts',
+      column: 'visibility',
+      sql: "ALTER TABLE loadouts ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+    },
+    {
+      id: '20260301_loadouts_share_token',
+      table: 'loadouts',
+      column: 'share_token',
+      sql: 'ALTER TABLE loadouts ADD COLUMN share_token TEXT',
+    },
   ];
   for (const m of migrations) {
+    if (hasMigration.get(m.id)) {
+      continue;
+    }
     const cols = db.prepare(`PRAGMA table_info(${m.table})`).all() as {
       name: string;
     }[];
@@ -288,7 +350,15 @@ export function createAppSchema(): void {
       db.exec(m.sql);
       console.log(`[DB] Migration: added ${m.table}.${m.column}`);
     }
+    markMigration.run(m.id);
   }
+
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_builds_share_token ON builds(share_token)',
+  );
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_loadouts_share_token ON loadouts(share_token)',
+  );
 
   const archonCols = db
     .prepare('PRAGMA table_info(archon_shard_types)')

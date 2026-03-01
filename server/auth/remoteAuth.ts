@@ -59,29 +59,37 @@ export interface RemoteAuthState {
   permissions: string[];
 }
 
-function getProto(req: Request): string {
+function getAppPublicBaseUrl(): string {
   const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
-  if (configuredBase) {
-    try {
-      return new URL(configuredBase).protocol.replace(':', '');
-    } catch {
-      // ignore
-    }
+  if (!configuredBase) {
+    throw new Error('APP_PUBLIC_BASE_URL must be set.');
   }
-  if (process.env.NODE_ENV === 'production') return 'https';
-  return req.protocol;
+  let parsed: URL;
+  try {
+    parsed = new URL(configuredBase);
+  } catch {
+    throw new Error('APP_PUBLIC_BASE_URL must be a valid URL.');
+  }
+  const nodeEnv = process.env.NODE_ENV;
+  const isLocalHttp =
+    parsed.protocol === 'http:' &&
+    (parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '::1');
+  const isNonProd = nodeEnv === 'development' || nodeEnv === 'test';
+  if (parsed.protocol !== 'https:' && !(isLocalHttp || isNonProd)) {
+    throw new Error('APP_PUBLIC_BASE_URL must use https://');
+  }
+  return parsed.toString().replace(/\/+$/, '');
 }
 
-function getHost(req: Request): string {
-  const configuredBase = process.env.APP_PUBLIC_BASE_URL?.trim();
-  if (configuredBase) {
-    try {
-      return new URL(configuredBase).host;
-    } catch {
-      // ignore
-    }
-  }
-  return req.get('host') || 'localhost';
+function isSafeRelativePath(nextPath: string): boolean {
+  return (
+    nextPath.startsWith('/') &&
+    !nextPath.startsWith('//') &&
+    !nextPath.includes('\\') &&
+    !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(nextPath)
+  );
 }
 
 type AuthStateCache = Partial<Record<string, Promise<RemoteAuthState>>>;
@@ -101,10 +109,9 @@ function getRequestAuthCache(req: Request): AuthStateCache {
 }
 
 export function buildAuthLoginUrl(req: Request, nextPath?: string): string {
-  const host = getHost(req);
-  const proto = getProto(req);
   const requested = nextPath || req.originalUrl || '/';
-  const next = `${proto}://${host}${requested}`;
+  const safeNextPath = isSafeRelativePath(requested) ? requested : '/';
+  const next = new URL(safeNextPath, getAppPublicBaseUrl()).toString();
   const loginUrl = new URL(`${resolveAuthServiceUrl(req)}/login`);
   loginUrl.searchParams.set('next', next);
   return loginUrl.toString();
@@ -242,22 +249,38 @@ export async function proxyAuthLogout(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const host = getHost(req);
-  const proto = getProto(req);
-  const next = `${proto}://${host}/login`;
-  const logoutUrl = new URL(`${resolveAuthServiceUrl(req)}/logout`);
-  logoutUrl.searchParams.set('next', next);
+  const authBase = resolveAuthServiceUrl(req);
+  const csrfUrl = `${authBase}/api/auth/csrf`;
+  const logoutUrl = `${authBase}/api/auth/logout`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
 
   try {
-    const upstream = await fetch(logoutUrl, {
+    const csrfResponse = await fetch(csrfUrl, {
       method: 'GET',
       headers: {
         cookie: req.headers.cookie ?? '',
-        accept: 'text/html',
+        accept: 'application/json',
       },
-      redirect: 'manual',
+      signal: controller.signal,
+    });
+    if (!csrfResponse.ok) {
+      throw new Error('Failed to fetch CSRF token for logout');
+    }
+    const csrfBody = (await csrfResponse.json()) as { csrfToken?: string };
+    if (!csrfBody.csrfToken) {
+      throw new Error('Missing CSRF token for logout');
+    }
+
+    const upstream = await fetch(logoutUrl, {
+      method: 'POST',
+      headers: {
+        cookie: req.headers.cookie ?? '',
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-csrf-token': csrfBody.csrfToken,
+      },
+      body: JSON.stringify({ _csrf: csrfBody.csrfToken }),
       signal: controller.signal,
     });
 

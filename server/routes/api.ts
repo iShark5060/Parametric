@@ -26,8 +26,7 @@ apiRouter.get('/warframes', (_req: Request, res: Response) => {
     const rows = db.prepare('SELECT * FROM warframes ORDER BY name').all();
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -65,8 +64,7 @@ apiRouter.get('/weapons', (req: Request, res: Response) => {
 
     res.json({ items: filtered });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -76,8 +74,108 @@ apiRouter.get('/companions', (_req: Request, res: Response) => {
     const rows = db.prepare('SELECT * FROM companions ORDER BY name').all();
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
+  }
+});
+
+apiRouter.get('/search', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const term = String(req.query.q ?? '')
+      .trim()
+      .toLowerCase();
+    const limitRaw = Number(req.query.limit ?? 20);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 50)
+      : 20;
+    if (term.length < 2) {
+      res.json({ items: [] });
+      return;
+    }
+
+    const like = `%${term}%`;
+    const warframes = db
+      .prepare(
+        `SELECT name, unique_name, image_path, product_category
+         FROM warframes
+         WHERE lower(name) LIKE ?
+         LIMIT ?`,
+      )
+      .all(like, limit) as Array<{
+      name: string;
+      unique_name: string;
+      image_path: string | null;
+      product_category: string | null;
+    }>;
+    const weapons = db
+      .prepare(
+        `SELECT name, unique_name, image_path, product_category
+         FROM weapons
+         WHERE lower(name) LIKE ?
+         LIMIT ?`,
+      )
+      .all(like, limit) as Array<{
+      name: string;
+      unique_name: string;
+      image_path: string | null;
+      product_category: string | null;
+    }>;
+    const companions = db
+      .prepare(
+        `SELECT name, unique_name, image_path
+         FROM companions
+         WHERE lower(name) LIKE ?
+         LIMIT ?`,
+      )
+      .all(like, limit) as Array<{
+      name: string;
+      unique_name: string;
+      image_path: string | null;
+    }>;
+
+    const items = [
+      ...warframes.map((item) => ({
+        category: item.product_category || 'Warframes',
+        name: item.name,
+        unique_name: item.unique_name,
+        image_path: item.image_path ?? undefined,
+        equipment_type:
+          item.product_category === 'Archwings'
+            ? 'archwing'
+            : item.product_category === 'Necramechs'
+              ? 'necramech'
+              : 'warframe',
+      })),
+      ...weapons.map((item) => ({
+        category: item.product_category || 'Weapons',
+        name: item.name,
+        unique_name: item.unique_name,
+        image_path: item.image_path ?? undefined,
+        equipment_type:
+          item.product_category === 'Pistols'
+            ? 'secondary'
+            : item.product_category === 'Melee'
+              ? 'melee'
+              : item.product_category === 'SpaceGuns'
+                ? 'archgun'
+                : item.product_category === 'SpaceMelee'
+                  ? 'archmelee'
+                  : 'primary',
+      })),
+      ...companions.map((item) => ({
+        category: 'Companions',
+        name: item.name,
+        unique_name: item.unique_name,
+        image_path: item.image_path ?? undefined,
+        equipment_type: 'companion',
+      })),
+    ]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, limit);
+
+    res.json({ items });
+  } catch (err) {
+    sendInternalError(res, 'search', err);
   }
 });
 
@@ -162,6 +260,15 @@ function toBuildResponse(row: BuildRow): Record<string, unknown> {
   };
 }
 
+function sendInternalError(
+  res: Response,
+  context: string,
+  err: unknown,
+): void {
+  console.error(`[API] ${context} failed:`, err);
+  res.status(500).json({ error: 'Internal server error' });
+}
+
 apiRouter.get('/mods', (req: Request, res: Response) => {
   try {
     const db = getDb();
@@ -239,8 +346,7 @@ apiRouter.get('/mods', (req: Request, res: Response) => {
 
     res.json({ items: Array.from(byKey.values()) });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -264,8 +370,7 @@ apiRouter.get('/mods/:uniqueName', (req: Request, res: Response) => {
 
     res.json({ mod, levelStats });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -279,8 +384,7 @@ apiRouter.get('/arcanes', (_req: Request, res: Response) => {
       .all();
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -318,8 +422,7 @@ apiRouter.get('/abilities', (req: Request, res: Response) => {
     }
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -333,8 +436,7 @@ apiRouter.get('/helminth-abilities', (_req: Request, res: Response) => {
       .all();
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -359,8 +461,7 @@ apiRouter.get('/riven-stats', (req: Request, res: Response) => {
     const rows = db.prepare(sql).all(...params);
     res.json({ items: rows });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -381,8 +482,7 @@ apiRouter.get('/archon-shards', (_req: Request, res: Response) => {
 
     res.json({ shards: result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -417,8 +517,7 @@ apiRouter.put(
       ).run(name, icon_path, tauforged_icon_path, sort_order, typeId);
       res.json({ success: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -444,8 +543,7 @@ apiRouter.post(
       ).run(name, icon_path, tauforged_icon_path, sort_order);
       res.json({ success: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -487,8 +585,7 @@ apiRouter.post(
         );
       res.json({ success: true, id: result.lastInsertRowid });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -532,8 +629,7 @@ apiRouter.put(
       );
       res.json({ success: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -552,8 +648,7 @@ apiRouter.delete(
       db.prepare('DELETE FROM archon_shard_buffs WHERE id = ?').run(buffId);
       res.json({ success: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -577,8 +672,7 @@ apiRouter.get('/loadouts', (req: Request, res: Response) => {
     }
     res.json({ loadouts });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -602,6 +696,10 @@ apiRouter.get('/loadouts/:id', (req: Request, res: Response) => {
       res.status(404).json({ error: 'Loadout not found' });
       return;
     }
+    if (loadout.user_id !== req.session.user_id) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
     const links = db
       .prepare('SELECT * FROM loadout_builds WHERE loadout_id = ?')
       .all(id) as Array<Record<string, unknown>>;
@@ -615,8 +713,7 @@ apiRouter.get('/loadouts/:id', (req: Request, res: Response) => {
       owner_user_id: loadout.user_id,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'loadouts.getById', err);
   }
 });
 
@@ -644,8 +741,7 @@ apiRouter.post('/loadouts', (req: Request, res: Response) => {
       .run(req.session.user_id, sanitizedName);
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -676,8 +772,7 @@ apiRouter.put('/loadouts/:id', (req: Request, res: Response) => {
     ).run(trimmedName, parsedId, req.session.user_id);
     res.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -688,17 +783,28 @@ apiRouter.delete('/loadouts/:id', (req: Request, res: Response) => {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
-    db.prepare('DELETE FROM loadout_builds WHERE loadout_id = ?').run(
-      req.params.id,
-    );
-    db.prepare('DELETE FROM loadouts WHERE id = ? AND user_id = ?').run(
-      req.params.id,
-      req.session.user_id,
-    );
+    const id = parseNumericId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: 'Invalid loadout id' });
+      return;
+    }
+    const owned = db
+      .prepare('SELECT id FROM loadouts WHERE id = ? AND user_id = ?')
+      .get(id, req.session.user_id) as { id: number } | undefined;
+    if (!owned) {
+      res.status(404).json({ error: 'Loadout not found' });
+      return;
+    }
+    db.transaction(() => {
+      db.prepare('DELETE FROM loadout_builds WHERE loadout_id = ?').run(id);
+      db.prepare('DELETE FROM loadouts WHERE id = ? AND user_id = ?').run(
+        id,
+        req.session.user_id,
+      );
+    })();
     res.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'loadouts.delete', err);
   }
 });
 
@@ -720,6 +826,10 @@ apiRouter.post('/loadouts/:id/copy', (req: Request, res: Response) => {
       .get(id) as { id: number; user_id: number; name: string } | undefined;
     if (!sourceLoadout) {
       res.status(404).json({ error: 'Loadout not found' });
+      return;
+    }
+    if (sourceLoadout.user_id !== req.session.user_id) {
+      res.status(403).json({ error: 'Forbidden' });
       return;
     }
 
@@ -775,8 +885,7 @@ apiRouter.post('/loadouts/:id/copy', (req: Request, res: Response) => {
 
     res.json({ success: true, id: newLoadoutId });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'loadouts.copy', err);
   }
 });
 
@@ -824,8 +933,7 @@ apiRouter.post('/loadouts/:id/builds', (req: Request, res: Response) => {
     }
     res.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -848,8 +956,7 @@ apiRouter.delete(
       ).run(loadoutId, req.params.slotType, loadoutId, req.session.user_id);
       res.json({ success: true });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      sendInternalError(res, 'request', err);
     }
   },
 );
@@ -872,8 +979,7 @@ apiRouter.get('/builds', (req: Request, res: Response) => {
 
     res.json({ builds });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -897,6 +1003,10 @@ apiRouter.get('/builds/:id', (req: Request, res: Response) => {
       res.status(404).json({ error: 'Build not found' });
       return;
     }
+    if (row.user_id !== req.session.user_id) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
 
     res.json({
       build: toBuildResponse(row),
@@ -904,8 +1014,7 @@ apiRouter.get('/builds/:id', (req: Request, res: Response) => {
       owner_user_id: row.user_id,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'builds.getById', err);
   }
 });
 
@@ -944,8 +1053,7 @@ apiRouter.post('/builds', (req: Request, res: Response) => {
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -975,8 +1083,7 @@ apiRouter.put('/builds/:id', (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -999,8 +1106,7 @@ apiRouter.delete('/builds/:id', (req: Request, res: Response) => {
     );
     res.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'request', err);
   }
 });
 
@@ -1021,6 +1127,10 @@ apiRouter.post('/builds/:id/copy', (req: Request, res: Response) => {
       | undefined;
     if (!source) {
       res.status(404).json({ error: 'Build not found' });
+      return;
+    }
+    if (source.user_id !== req.session.user_id) {
+      res.status(403).json({ error: 'Forbidden' });
       return;
     }
 
@@ -1047,7 +1157,6 @@ apiRouter.post('/builds/:id/copy', (req: Request, res: Response) => {
 
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: msg });
+    sendInternalError(res, 'builds.copy', err);
   }
 });

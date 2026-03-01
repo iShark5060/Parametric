@@ -79,7 +79,7 @@ export function BuildOverview() {
     return (
       <div className="mx-auto max-w-[2000px]">
         <div className="glass-shell flex h-64 items-center justify-center">
-          <p className="text-muted">Loading builds...</p>
+          <p className="text-muted">Loading builds…</p>
         </div>
       </div>
     );
@@ -262,6 +262,14 @@ function BuildRow({
     <div
       className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-all hover:bg-glass-hover"
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-glass">
         {build.equipment_image ? (
@@ -301,6 +309,7 @@ function BuildRow({
               onLink();
             }}
             title="Link to loadout"
+            aria-label="Link build to loadout"
           >
             ⛓
           </button>
@@ -311,6 +320,7 @@ function BuildRow({
             e.stopPropagation();
             onDelete();
           }}
+          aria-label="Delete build"
         >
           &times;
         </button>
@@ -339,6 +349,14 @@ function LoadoutRow({
       <div
         className="group flex cursor-pointer items-center gap-3 px-4 py-3 transition-all hover:bg-glass-hover"
         onClick={() => setExpanded(!expanded)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setExpanded((prev) => !prev);
+          }
+        }}
       >
         <span className="text-xs text-muted/50">{expanded ? '▼' : '▶'}</span>
         <div className="min-w-0 flex-1">
@@ -355,6 +373,7 @@ function LoadoutRow({
             e.stopPropagation();
             onDelete();
           }}
+          aria-label="Delete loadout"
         >
           &times;
         </button>
@@ -383,6 +402,7 @@ function LoadoutRow({
                     <button
                       onClick={() => onUnlink(key)}
                       className="text-muted/40 hover:text-danger"
+                      aria-label={`Unlink ${label}`}
                     >
                       &times;
                     </button>
