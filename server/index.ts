@@ -161,7 +161,7 @@ app.use((req, res, next) => {
     hasSession: Boolean(req.session),
     hasSessionCookie: Boolean(
       typeof req.headers.cookie === 'string' &&
-        req.headers.cookie.includes('parametric.sid='),
+      req.headers.cookie.includes('parametric.sid='),
     ),
     headerToken: tokenPreview(headerToken),
     bodyToken: tokenPreview(bodyToken),
@@ -310,7 +310,7 @@ app.use(
         hasSession: Boolean(req.session),
         hasSessionCookie: Boolean(
           typeof req.headers.cookie === 'string' &&
-            req.headers.cookie.includes('parametric.sid='),
+          req.headers.cookie.includes('parametric.sid='),
         ),
         storedToken: tokenPreview(req.session?.csrfToken),
       };
@@ -327,13 +327,11 @@ app.use(
       });
       res.setHeader('X-CSRF-Error', '1');
       res.setHeader('X-CSRF-Debug-Id', debugId);
-      res
-        .status(403)
-        .json({
-          error: 'Invalid CSRF token',
-          code: 'CSRF_INVALID',
-          debug: CSRF_DEBUG ? { debugId, ...debug } : undefined,
-        });
+      res.status(403).json({
+        error: 'Invalid CSRF token',
+        code: 'CSRF_INVALID',
+        debug: CSRF_DEBUG ? { debugId, ...debug } : undefined,
+      });
       return;
     }
     console.error('[Error]', err.stack ?? message);
