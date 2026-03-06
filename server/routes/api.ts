@@ -394,7 +394,7 @@ apiRouter.get('/mods', (req: Request, res: Response) => {
     }
     if (search) {
       const escapedSearch = search.replace(/[\\%_]/g, '\\$&');
-      sql += " AND m.name LIKE ? ESCAPE '\\\\'";
+      sql += " AND m.name LIKE ? ESCAPE '\\'";
       params.push(`%${escapedSearch}%`);
     }
 

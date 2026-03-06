@@ -94,15 +94,12 @@ function cleanupDragCloneOnEnd(
     if (cleaned) return;
     cleaned = true;
 
-    sourceEl.removeEventListener('dragend', cleanup);
-    sourceEl.removeEventListener('dragcancel', cleanup);
     if (clone.parentNode) {
       clone.parentNode.removeChild(clone);
     }
   };
 
   sourceEl.addEventListener('dragend', cleanup, { once: true });
-  sourceEl.addEventListener('dragcancel', cleanup, { once: true });
 }
 
 export function FilterPanel({

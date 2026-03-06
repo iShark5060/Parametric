@@ -48,12 +48,36 @@ type ColumnExtractor = (
   item: Record<string, unknown>,
 ) => Record<string, unknown>;
 
+function stableSerialize(value: unknown): string {
+  function normalizeForStableStringify(input: unknown): unknown {
+    if (Array.isArray(input)) {
+      return input.map((entry) => normalizeForStableStringify(entry));
+    }
+
+    if (input && typeof input === 'object') {
+      const entries = Object.entries(input as Record<string, unknown>).sort(
+        ([a], [b]) => a.localeCompare(b),
+      );
+      return Object.fromEntries(
+        entries.map(([key, entry]) => [
+          key,
+          normalizeForStableStringify(entry),
+        ]),
+      );
+    }
+
+    return input;
+  }
+
+  return JSON.stringify(normalizeForStableStringify(value));
+}
+
 function deterministicUniqueName(
   item: Record<string, unknown>,
   prefix: string,
 ): string {
   const contentHash = createHash('sha1')
-    .update(JSON.stringify(item))
+    .update(stableSerialize(item))
     .digest('hex')
     .slice(0, 16);
   return `${prefix}_${contentHash}`;

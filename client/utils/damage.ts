@@ -75,7 +75,14 @@ export function extractElementMods(slots: ModSlot[]): Array<{
       const lower = desc.toLowerCase();
       for (const element of PRIMARY_ELEMENTS) {
         if (lower.includes(`${element.toLowerCase()} damage`)) {
-          const match = desc.match(/\+?([\d.]+)%/);
+          const escapedElement = element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const elementSpecificMatch = desc.match(
+            new RegExp(
+              `${escapedElement}\\s+damage[^\\d+\\-]*\\+?([\\d.]+)%`,
+              'i',
+            ),
+          );
+          const match = elementSpecificMatch ?? desc.match(/\+?([\d.]+)%/);
           const value = match ? parseFloat(match[1]) : 0;
           result.push({
             slotIndex: slot.index,
@@ -84,8 +91,13 @@ export function extractElementMods(slots: ModSlot[]): Array<{
           });
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[extractElementMods] Failed to parse mod description', {
+          error: err,
+          modDesc,
+        });
+      }
     }
   }
 

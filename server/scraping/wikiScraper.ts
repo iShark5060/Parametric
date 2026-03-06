@@ -940,13 +940,37 @@ export async function runWikiScrape(
   };
 
   state.phase = 'augments';
-  const augments = await scrapeAugments(log);
+  let augments: WikiAugmentMapping[] = [];
+  try {
+    augments = await scrapeAugments(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] fetchAugmentMappings/scrapeAugments failed: ${message}. Continuing with empty augment mappings.`,
+    );
+  }
 
   state.phase = 'shards';
-  const shards = await scrapeArchonShards(log);
+  let shards: WikiShardResult = { types: [], buffs: [] };
+  try {
+    shards = await scrapeArchonShards(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] scrapeArchonShards failed: ${message}. Continuing with empty shard data.`,
+    );
+  }
 
   state.phase = 'riven_disposition';
-  const dispositions = await scrapeRivenDispositions(log);
+  let dispositions: WikiRivenDisposition[] = [];
+  try {
+    dispositions = await scrapeRivenDispositions(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] scrapeRivenDispositions failed: ${message}. Continuing with empty dispositions.`,
+    );
+  }
 
   state.phase = 'abilities';
   const abilities = await scrapeAbilities((msg) => {

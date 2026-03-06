@@ -78,7 +78,9 @@ export async function scrapeItemPage(
   const fireBehaviors = Array.isArray(itemData.Behaviors)
     ? itemData.Behaviors.filter(
         (behavior): behavior is Record<string, unknown> =>
-          !!behavior && typeof behavior === 'object',
+          !!behavior &&
+          typeof behavior === 'object' &&
+          !Array.isArray(behavior),
       )
     : [];
 

@@ -306,7 +306,8 @@ export function mapRarityToArcaneRarity(rarity: Rarity): ArcaneRarity {
     Archon: 'legendary',
     Riven: 'legendary',
   };
-  return map[rarity];
+  const _exhaustiveCheck: Record<Rarity, ArcaneRarity> = map;
+  return _exhaustiveCheck[rarity];
 }
 
 export function getArcaneAsset(rarity?: string | ArcaneRarity): string {

@@ -239,14 +239,14 @@ export function Layout() {
                         Admin
                       </Link>
                     ) : null}
-                    <a
-                      href="/auth/profile"
+                    <Link
+                      to="/auth/profile"
                       className="user-menu-item"
                       role="menuitem"
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Profile
-                    </a>
+                    </Link>
                     <button
                       type="button"
                       className="user-menu-item text-left"
