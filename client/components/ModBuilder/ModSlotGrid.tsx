@@ -112,8 +112,8 @@ export function ModSlotGrid({
 
   const handleDrop = (slotIndex: number, e: React.DragEvent) => {
     e.preventDefault();
+    const rawData = e.dataTransfer.getData('application/json');
     try {
-      const rawData = e.dataTransfer.getData('application/json');
       if (rawData) {
         const parsed = JSON.parse(rawData);
         if (parsed.__remove) {
@@ -124,8 +124,12 @@ export function ModSlotGrid({
           onDrop(slotIndex, parsed as Mod);
         }
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      console.warn(
+        '[ModSlotGrid.handleDrop] Failed to parse drag payload',
+        { slotIndex, rawData },
+        error,
+      );
     }
   };
 

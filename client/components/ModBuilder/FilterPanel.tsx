@@ -1,4 +1,5 @@
 import {
+  memo,
   useState,
   useMemo,
   useRef,
@@ -81,6 +82,24 @@ function getRivenArtNameForType(equipmentType: EquipmentType): string | null {
     default:
       return null;
   }
+}
+
+function cleanupDragCloneOnEnd(
+  sourceEl: HTMLElement,
+  clone: HTMLElement,
+): void {
+  let cleaned = false;
+
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+
+    if (clone.parentNode) {
+      clone.parentNode.removeChild(clone);
+    }
+  };
+
+  sourceEl.addEventListener('dragend', cleanup, { once: true });
 }
 
 export function FilterPanel({
@@ -198,6 +217,15 @@ export function FilterPanel({
   const displayMods = showLockedOut
     ? [...compatible, ...lockedOut]
     : compatible;
+  const handleModPick = useCallback(
+    (mod: Mod, locked: boolean) => {
+      if (!locked) {
+        onModSelect(mod);
+        setSearch('');
+      }
+    },
+    [onModSelect],
+  );
   const rivenWeaponType = getRivenWeaponType(equipmentType);
   const rivenArt = useMemo(() => {
     const preferredName = getRivenArtNameForType(equipmentType);
@@ -270,6 +298,7 @@ export function FilterPanel({
         />
         {search && (
           <button
+            type="button"
             onClick={() => setSearch('')}
             className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-xs text-muted transition-colors hover:bg-glass-hover hover:text-foreground"
           >
@@ -283,6 +312,7 @@ export function FilterPanel({
           <button
             key={r.value}
             onClick={() => setRarity(r.value)}
+            type="button"
             className={`rounded-lg px-2 py-1 text-xs transition-all ${
               rarity === r.value
                 ? 'bg-accent-weak text-accent'
@@ -348,9 +378,7 @@ export function FilterPanel({
                         rect.width / 2,
                         rect.height / 2,
                       );
-                      requestAnimationFrame(() =>
-                        document.body.removeChild(clone),
-                      );
+                      cleanupDragCloneOnEnd(el, clone);
                     }}
                     className="cursor-grab"
                   >
@@ -393,9 +421,7 @@ export function FilterPanel({
                         rect.width / 2,
                         rect.height / 2,
                       );
-                      requestAnimationFrame(() =>
-                        document.body.removeChild(clone),
-                      );
+                      cleanupDragCloneOnEnd(el, clone);
                     }}
                     className="cursor-grab"
                   >
@@ -417,12 +443,7 @@ export function FilterPanel({
                       locked={locked}
                       expanded={expandMods}
                       scale={cardScale}
-                      onClick={() => {
-                        if (!locked) {
-                          onModSelect(mod);
-                          setSearch('');
-                        }
-                      }}
+                      onPick={handleModPick}
                     />
                   );
                 })}
@@ -434,22 +455,22 @@ export function FilterPanel({
   );
 }
 
-function ModPickerCard({
+const ModPickerCard = memo(function ModPickerCard({
   mod,
   locked,
   expanded,
   scale,
-  onClick,
+  onPick,
 }: {
   mod: Mod;
   locked: boolean;
   expanded: boolean;
   scale: number;
-  onClick: () => void;
+  onPick: (mod: Mod, locked: boolean) => void;
 }) {
   return (
     <div
-      onClick={onClick}
+      onClick={() => onPick(mod, locked)}
       className={`${locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <ModCard
@@ -462,4 +483,4 @@ function ModPickerCard({
       />
     </div>
   );
-}
+});

@@ -10,6 +10,8 @@ export function createCentralSchema(db: Database.Database): void {
       is_admin INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE INDEX IF NOT EXISTS idx_users_username_nocase
+      ON users(username COLLATE NOCASE);
 
     CREATE TABLE IF NOT EXISTS user_game_access (
       user_id INTEGER NOT NULL,

@@ -268,10 +268,10 @@ export function CompareModal({ onClose }: CompareModalProps) {
                 style={{ gridTemplateColumns: `160px repeat(${cols}, 1fr)` }}
               >
                 <span className="text-xs font-semibold text-muted">Total</span>
-                {snapshots.map((s, i) => {
+                {(() => {
                   const vals = snapshots.map((ss) => ss.totalElementDamage);
                   const best = bestIndex(vals, 'high');
-                  return (
+                  return snapshots.map((s, i) => (
                     <span
                       key={i}
                       className={`text-center text-xs font-semibold tabular-nums ${
@@ -280,8 +280,8 @@ export function CompareModal({ onClose }: CompareModalProps) {
                     >
                       {fmt(s.totalElementDamage)}
                     </span>
-                  );
-                })}
+                  ));
+                })()}
               </div>
             </div>
           </>

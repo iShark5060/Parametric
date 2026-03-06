@@ -393,8 +393,9 @@ apiRouter.get('/mods', (req: Request, res: Response) => {
       params.push(rarity);
     }
     if (search) {
-      sql += ' AND m.name LIKE ?';
-      params.push(`%${search}%`);
+      const escapedSearch = search.replace(/[\\%_]/g, '\\$&');
+      sql += " AND m.name LIKE ? ESCAPE '\\'";
+      params.push(`%${escapedSearch}%`);
     }
 
     sql += ' ORDER BY m.name';
@@ -1158,15 +1159,20 @@ apiRouter.put('/builds/:id', (req: Request, res: Response) => {
       return;
     }
     const { name, mod_config } = req.body;
-    if (typeof name !== 'string' || !mod_config) {
+    const modConfigResult = ModConfigSchema.safeParse(mod_config);
+    if (typeof name !== 'string') {
       res.status(400).json({ error: 'Invalid build payload' });
+      return;
+    }
+    if (!modConfigResult.success) {
+      res.status(400).json({ error: 'Invalid mod_config' });
       return;
     }
 
     db.prepare(
       `UPDATE builds SET name = ?, mod_config = ?, updated_at = datetime('now')
        WHERE id = ? AND user_id = ?`,
-    ).run(name, JSON.stringify(mod_config), id, req.session.user_id);
+    ).run(name, JSON.stringify(modConfigResult.data), id, req.session.user_id);
 
     res.json({ success: true });
   } catch (err) {

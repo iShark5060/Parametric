@@ -41,12 +41,22 @@ export function ProfilePage() {
   }
 
   const handleSave = async () => {
+    const trimmedEmail = email.trim();
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+    if (!isValidEmail) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please enter a valid email address.',
+      });
+      return;
+    }
+
     setIsSaving(true);
     setSaveStatus(null);
     try {
       await updateProfile({
         displayName: displayName.trim() || profile.username,
-        email: email.trim(),
+        email: trimmedEmail,
       });
       setSaveStatus({ type: 'success', message: 'Profile saved.' });
     } catch (e) {

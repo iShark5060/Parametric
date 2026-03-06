@@ -39,6 +39,7 @@ export function useApi<T>(url: string | null): ApiState<T> {
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
+        setData(null);
         setError(err.message);
         setLoading(false);
       });

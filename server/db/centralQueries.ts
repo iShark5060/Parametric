@@ -14,7 +14,7 @@ export function getUserByUsername(
 ): CentralUser | undefined {
   return db
     .prepare(
-      'SELECT id, username, password_hash, is_admin, created_at FROM users WHERE LOWER(username) = LOWER(?)',
+      'SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = ? COLLATE NOCASE',
     )
     .get(username.trim()) as CentralUser | undefined;
 }
@@ -38,7 +38,7 @@ export function createUser(
 ): { id: number; inserted: boolean } {
   const trimmed = username.trim();
   const existing = db
-    .prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)')
+    .prepare('SELECT id FROM users WHERE username = ? COLLATE NOCASE')
     .get(trimmed) as { id: number } | undefined;
   if (existing) return { id: existing.id, inserted: false };
   const r = db

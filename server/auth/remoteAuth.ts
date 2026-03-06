@@ -35,10 +35,16 @@ if (!parsedPrimaryAuthServiceUrl && process.env.NODE_ENV === 'production') {
 }
 
 const AUTH_SERVICE_URL = parsedPrimaryAuthServiceUrl ?? 'http://auth.invalid';
-const AUTH_FETCH_TIMEOUT_MS = Number.parseInt(
+const parsedAuthFetchTimeoutMs = Number.parseInt(
   process.env.AUTH_FETCH_TIMEOUT_MS ?? '5000',
   10,
 );
+const AUTH_FETCH_TIMEOUT_MS =
+  Number.isFinite(parsedAuthFetchTimeoutMs) &&
+  Number.isInteger(parsedAuthFetchTimeoutMs) &&
+  parsedAuthFetchTimeoutMs > 0
+    ? parsedAuthFetchTimeoutMs
+    : 5000;
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 const AUTH_STATE_CACHE_KEY = Symbol('parametricAuthStateCache');
 

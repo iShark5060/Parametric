@@ -10,6 +10,18 @@ interface ShardPickerPanelProps {
   onClose: () => void;
 }
 
+function formatBuffValue(
+  buff: ShardType['buffs'][number],
+  tauforged: boolean,
+): string {
+  const value = tauforged ? buff.tauforged_value : buff.base_value;
+  if (buff.value_format === 'proc') return '';
+  if (buff.value_format === '%') return ` +${value}%`;
+  if (buff.value_format === '+flat') return ` +${value}`;
+  if (buff.value_format === '/s') return ` +${value}/s`;
+  return ` ${value}`;
+}
+
 export function ShardPickerPanel({
   shards,
   currentSlot,
@@ -82,14 +94,7 @@ export function ShardPickerPanel({
           </button>
           {activeShard &&
             activeShard.buffs.map((buff) => {
-              const value = tauforged ? buff.tauforged_value : buff.base_value;
-              const formatValue = () => {
-                if (buff.value_format === 'proc') return '';
-                if (buff.value_format === '%') return ` +${value}%`;
-                if (buff.value_format === '+flat') return ` +${value}`;
-                if (buff.value_format === '/s') return ` +${value}/s`;
-                return ` ${value}`;
-              };
+              const formattedValue = formatBuffValue(buff, tauforged);
               return (
                 <button
                   key={buff.id}
@@ -97,7 +102,7 @@ export function ShardPickerPanel({
                   className="flex w-full items-center justify-between rounded-lg border border-glass-border px-3 py-2 text-left text-sm text-muted transition-all hover:border-glass-border-hover hover:bg-glass-hover hover:text-foreground"
                 >
                   <span>{buff.description}</span>
-                  <span className="text-xs text-accent">{formatValue()}</span>
+                  <span className="text-xs text-accent">{formattedValue}</span>
                 </button>
               );
             })}

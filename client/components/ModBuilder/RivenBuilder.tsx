@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AP_ATTACK,
@@ -47,6 +47,15 @@ export function RivenBuilder({
   );
   const [error, setError] = useState<string>('');
   const [adjustNotice, setAdjustNotice] = useState<string>('');
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    setRows(initialRows);
+  }, [initialRows]);
 
   const selectedStats = rows.map((r) => r.stat).filter(Boolean);
 

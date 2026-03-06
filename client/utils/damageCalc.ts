@@ -97,6 +97,7 @@ export function calculateWeaponDps(
   let averageHit: number;
   let burstDps: number;
   let sustainedDps: number;
+  const ammoCost = isMelee ? 1 : parseAmmoCost(weapon);
 
   if (isMelee) {
     averageHit = moddedTotalDamage * avgCritMult;
@@ -106,7 +107,6 @@ export function calculateWeaponDps(
     averageHit = moddedTotalDamage * moddedMultishot * avgCritMult;
     burstDps = averageHit * moddedFireRate;
 
-    const ammoCost = parseAmmoCost(weapon);
     const shotsPerMag = Math.floor(moddedMagazineSize / ammoCost);
     if (shotsPerMag > 0 && moddedReloadTime > 0) {
       const fireTime = shotsPerMag / moddedFireRate;
@@ -126,7 +126,7 @@ export function calculateWeaponDps(
     burstDps,
     sustainedDps,
     statusPerSec,
-    ammoCost: isMelee ? 0 : parseAmmoCost(weapon),
+    ammoCost: isMelee ? 0 : ammoCost,
     isMelee,
   };
 }

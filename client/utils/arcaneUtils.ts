@@ -5,7 +5,7 @@ export function getMaxRank(arcane: Arcane): number {
   try {
     if (arcane.level_stats) {
       const stats = JSON.parse(arcane.level_stats);
-      return Array.isArray(stats) ? stats.length - 1 : 5;
+      return Array.isArray(stats) && stats.length > 0 ? stats.length - 1 : 5;
     }
   } catch {
     // ignore

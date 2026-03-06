@@ -97,10 +97,19 @@ function setJsonContentType(headers: Headers, init?: RequestInit): void {
   if (
     !headers.has('Content-Type') &&
     init?.body &&
-    typeof init.body === 'string' &&
-    (init.body.startsWith('{') || init.body.startsWith('['))
+    typeof init.body === 'string'
   ) {
-    headers.set('Content-Type', 'application/json');
+    try {
+      const parsed = JSON.parse(init.body) as unknown;
+      if (
+        Array.isArray(parsed) ||
+        (parsed !== null && typeof parsed === 'object')
+      ) {
+        headers.set('Content-Type', 'application/json');
+      }
+    } catch {
+      // body is not valid JSON; leave Content-Type untouched
+    }
   }
 }
 

@@ -10,6 +10,8 @@ export {
   getRarityBorderColor,
   getModAsset,
   getArcaneAsset,
+  normalizeArcaneRarity,
+  mapRarityToArcaneRarity,
   dbRarityToCardRarity,
   dbPolarityToIconName,
   isArchonMod,

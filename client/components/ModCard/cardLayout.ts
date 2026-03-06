@@ -13,6 +13,14 @@ export const RARITIES = [
 export const SLOT_ICONS = ['', 'aura', 'stance', 'exilus'] as const;
 export type SlotIcon = (typeof SLOT_ICONS)[number];
 export type Rarity = (typeof RARITIES)[number];
+export const ARCANE_RARITIES = [
+  'common',
+  'uncommon',
+  'rare',
+  'legendary',
+  'empty',
+] as const;
+export type ArcaneRarity = (typeof ARCANE_RARITIES)[number];
 
 export const DAMAGE_COLORS: Record<string, string> = {
   none: 'transparent',
@@ -275,21 +283,35 @@ export const DEFAULT_ARCANE_LAYOUT: ArcaneCardLayout = {
   scale: 1.5,
 };
 
-export type ArcaneRarity =
-  | 'common'
-  | 'uncommon'
-  | 'rare'
-  | 'legendary'
-  | 'empty';
-
-export function getArcaneAsset(rarity?: string): string {
-  const map: Record<string, string> = {
+export function normalizeArcaneRarity(rarity?: string): ArcaneRarity {
+  const map: Record<string, ArcaneRarity> = {
     COMMON: 'common',
     UNCOMMON: 'uncommon',
     RARE: 'rare',
     LEGENDARY: 'legendary',
+    EMPTY: 'empty',
   };
-  const key = map[(rarity || '').toUpperCase()] || 'empty';
+  return map[(rarity || '').toUpperCase()] ?? 'empty';
+}
+
+export function mapRarityToArcaneRarity(rarity: Rarity): ArcaneRarity {
+  const map: Record<Rarity, ArcaneRarity> = {
+    Empty: 'empty',
+    Common: 'common',
+    Uncommon: 'uncommon',
+    Rare: 'rare',
+    Legendary: 'legendary',
+    Amalgam: 'legendary',
+    Galvanized: 'legendary',
+    Archon: 'legendary',
+    Riven: 'legendary',
+  };
+  const _exhaustiveCheck: Record<Rarity, ArcaneRarity> = map;
+  return _exhaustiveCheck[rarity];
+}
+
+export function getArcaneAsset(rarity?: string | ArcaneRarity): string {
+  const key = normalizeArcaneRarity(rarity);
   return `/icons/arcane/${key}.png`;
 }
 

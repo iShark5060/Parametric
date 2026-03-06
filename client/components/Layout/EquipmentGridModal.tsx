@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 
-import { Modal } from '../../components/ui/Modal';
 import {
   EQUIPMENT_TYPE_LABELS,
   EQUIPMENT_TYPE_ORDER,
   type EquipmentType,
 } from '../../types/warframe';
 import { apiFetch } from '../../utils/api';
+import { Modal } from '../ui/Modal';
 
 interface EquipmentItem {
   unique_name: string;
@@ -29,9 +29,11 @@ const CATEGORY_API: Record<EquipmentType, string> = {
   archgun: '/api/weapons?type=SpaceGuns',
   archmelee: '/api/weapons?type=SpaceMelee',
   companion: '/api/companions',
+  beast_claws: '',
   archwing: '/api/warframes',
   necramech: '/api/warframes',
   kdrive: '',
+  tektolyst: '',
 };
 
 export function EquipmentGridModal({
@@ -41,17 +43,20 @@ export function EquipmentGridModal({
   const [activeTab, setActiveTab] = useState<EquipmentType>('warframe');
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     const url = CATEGORY_API[activeTab];
     if (!url) {
       setItems([]);
+      setError(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
     void apiFetch(url)
       .then((r) => {
         return r.json();
@@ -71,10 +76,13 @@ export function EquipmentGridModal({
         }
 
         setItems(list);
+        setError(null);
         return undefined;
       })
-      .catch(() => {
-        setItems([]);
+      .catch((err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : 'Failed to load equipment data.';
+        setError(message);
       })
       .finally(() => setLoading(false));
   }, [activeTab]);
@@ -144,6 +152,12 @@ export function EquipmentGridModal({
           {loading ? (
             <div className="flex h-32 items-center justify-center">
               <p className="text-sm text-muted">Loading...</p>
+            </div>
+          ) : error ? (
+            <div className="flex h-32 items-center justify-center">
+              <p className="text-sm text-danger">
+                Failed to load equipment: {error}
+              </p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex h-32 items-center justify-center">

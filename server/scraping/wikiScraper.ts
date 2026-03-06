@@ -3,9 +3,41 @@ import * as cheerio from 'cheerio';
 import { getDb } from '../db/connection.js';
 
 const WIKI_BASE = 'https://wiki.warframe.com';
+const DEFAULT_FETCH_TIMEOUT = 15_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = DEFAULT_FETCH_TIMEOUT,
+): Promise<Response> {
+  const controller = new AbortController();
+  const { signal, ...restOptions } = options;
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  const onAbort = (): void => {
+    controller.abort();
+  };
+
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  }
+
+  try {
+    return await fetch(url, { ...restOptions, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener('abort', onAbort);
+  }
 }
 
 export interface WikiAbilityStats {
@@ -116,7 +148,7 @@ async function scrapeAbilityPage(
 ): Promise<WikiAbilityStats | null> {
   const url = overrideUrl ?? `${WIKI_BASE}/w/${wikiSlug(abilityName)}`;
 
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) return null;
 
   const html = await res.text();
@@ -209,7 +241,7 @@ async function resolveAbilityUrls(
     const url = `${WIKI_BASE}/w/${encodeURIComponent(slug)}/Abilities`;
 
     try {
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       if (!res.ok) {
         onProgress?.(
           `  Could not fetch ${cleanName}/Abilities (${res.status})`,
@@ -251,7 +283,7 @@ async function resolveAbilityUrls(
     .map((a) => a.name);
   if (helminthAbilities.length > 0) {
     try {
-      const res = await fetch(`${WIKI_BASE}/w/Helminth`);
+      const res = await fetchWithTimeout(`${WIKI_BASE}/w/Helminth`);
       if (res.ok) {
         const html = await res.text();
         const $ = cheerio.load(html);
@@ -273,8 +305,17 @@ async function resolveAbilityUrls(
         }
       }
       await sleep(500);
-    } catch {
-      // ignore
+    } catch (err) {
+      const helminthUrl = `${WIKI_BASE}/w/Helminth`;
+      const message = err instanceof Error ? err.message : String(err);
+      onProgress?.(`  Error resolving Helminth abilities: ${message}`);
+      console.error('[wikiScraper] resolveAbilityUrls Helminth scrape failed', {
+        url: helminthUrl,
+        error:
+          err instanceof Error
+            ? { message: err.message, stack: err.stack }
+            : err,
+      });
     }
   }
 
@@ -387,7 +428,7 @@ async function scrapeWarframePage(wfName: string): Promise<string | null> {
   const slug = wfName.replace(/ /g, '_');
   const url = `${WIKI_BASE}/w/${encodeURIComponent(slug)}`;
 
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) return null;
 
   const html = await res.text();
@@ -526,7 +567,7 @@ function extractBraceBlock(lua: string, startIdx: number): string {
 
 async function fetchAugmentMappings(): Promise<WikiAugmentMapping[]> {
   const url = `${WIKI_BASE}/w/Module:Ability/data?action=raw`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok)
     throw new Error(`Failed to fetch Module:Ability/data: ${res.status}`);
 
@@ -577,18 +618,16 @@ function parseBuffValues(text: string): {
   base: number;
   tauforged: number;
   isPercent: boolean;
-} {
+} | null {
   const m = text.match(
     /\+?(\d+(?:\.\d+)?)(%?)\s*\((?:\+?(\d+(?:\.\d+)?))(%?)\)/,
   );
-  if (m) {
-    return {
-      base: parseFloat(m[1]),
-      tauforged: parseFloat(m[3]),
-      isPercent: m[2] === '%' || m[4] === '%',
-    };
-  }
-  return { base: 0, tauforged: 0, isPercent: false };
+  if (!m) return null;
+  return {
+    base: parseFloat(m[1]),
+    tauforged: parseFloat(m[3]),
+    isPercent: m[2] === '%' || m[4] === '%',
+  };
 }
 
 function deriveValueFormat(text: string, isPercent: boolean): string {
@@ -602,7 +641,7 @@ export async function scrapeArchonShards(
 ): Promise<WikiShardResult> {
   onProgress?.('Fetching Archon Shard wiki page...');
   const url = `${WIKI_BASE}/w/Archon_Shard`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok)
     throw new Error(`Failed to fetch Archon Shard page: ${res.status}`);
 
@@ -657,8 +696,16 @@ export async function scrapeArchonShards(
     const buffText = buffCell.text().trim();
     if (!buffText || !currentShardId) return;
 
+    const parsedValues = parseBuffValues(buffText);
+    if (!parsedValues) {
+      console.warn(
+        `[WikiScraper] Skipping unparsable shard buff text: "${buffText}"`,
+      );
+      return;
+    }
+
     buffSortOrder++;
-    const { base, tauforged, isPercent } = parseBuffValues(buffText);
+    const { base, tauforged, isPercent } = parsedValues;
     const valueFormat = deriveValueFormat(buffText, isPercent);
 
     buffs.push({
@@ -679,7 +726,7 @@ export async function scrapeRivenDispositions(
   onProgress?: (msg: string) => void,
 ): Promise<WikiRivenDisposition[]> {
   onProgress?.('Fetching Riven Mods wiki page...');
-  const res = await fetch(`${WIKI_BASE}/w/Riven_Mods`);
+  const res = await fetchWithTimeout(`${WIKI_BASE}/w/Riven_Mods`);
   if (!res.ok) {
     throw new Error(`Failed to fetch Riven Mods page: ${res.status}`);
   }
@@ -893,13 +940,37 @@ export async function runWikiScrape(
   };
 
   state.phase = 'augments';
-  const augments = await scrapeAugments(log);
+  let augments: WikiAugmentMapping[] = [];
+  try {
+    augments = await scrapeAugments(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] fetchAugmentMappings/scrapeAugments failed: ${message}. Continuing with empty augment mappings.`,
+    );
+  }
 
   state.phase = 'shards';
-  const shards = await scrapeArchonShards(log);
+  let shards: WikiShardResult = { types: [], buffs: [] };
+  try {
+    shards = await scrapeArchonShards(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] scrapeArchonShards failed: ${message}. Continuing with empty shard data.`,
+    );
+  }
 
   state.phase = 'riven_disposition';
-  const dispositions = await scrapeRivenDispositions(log);
+  let dispositions: WikiRivenDisposition[] = [];
+  try {
+    dispositions = await scrapeRivenDispositions(log);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(
+      `[WikiScraper] scrapeRivenDispositions failed: ${message}. Continuing with empty dispositions.`,
+    );
+  }
 
   state.phase = 'abilities';
   const abilities = await scrapeAbilities((msg) => {

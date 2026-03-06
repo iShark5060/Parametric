@@ -7,7 +7,10 @@ import {
 } from '../../utils/damageTypeTokens';
 import { GlassTooltip } from '../GlassTooltip';
 import { ArcaneCardPreview } from '../ModCard/ArcaneCardPreview';
-import { DEFAULT_ARCANE_LAYOUT } from '../ModCard/cardLayout';
+import {
+  DEFAULT_ARCANE_LAYOUT,
+  normalizeArcaneRarity,
+} from '../ModCard/cardLayout';
 
 export interface Arcane {
   unique_name: string;
@@ -191,7 +194,7 @@ function ArcaneSlotCell({
             >
               <ArcaneCardPreview
                 layout={layout}
-                rarity={arcane.rarity}
+                rarity={normalizeArcaneRarity(arcane.rarity)}
                 arcaneArt={
                   arcane.image_path ? `/images${arcane.image_path}` : ''
                 }

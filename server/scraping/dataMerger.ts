@@ -61,15 +61,19 @@ export function mergeScrapedData(
       const artifactSlotsJson = JSON.stringify(item.artifactSlots);
 
       if (table === 'warframes') {
-        updateWarframe.run(artifactSlotsJson, uniqueName);
-        result.warframesUpdated++;
+        const changes = updateWarframe.run(artifactSlotsJson, uniqueName);
+        if (changes.changes > 0) result.warframesUpdated++;
       } else if (table === 'weapons') {
         const fireBehaviorsJson = JSON.stringify(item.fireBehaviors);
-        updateWeapon.run(artifactSlotsJson, fireBehaviorsJson, uniqueName);
-        result.weaponsUpdated++;
+        const changes = updateWeapon.run(
+          artifactSlotsJson,
+          fireBehaviorsJson,
+          uniqueName,
+        );
+        if (changes.changes > 0) result.weaponsUpdated++;
       } else if (table === 'companions') {
-        updateCompanion.run(artifactSlotsJson, uniqueName);
-        result.companionsUpdated++;
+        const changes = updateCompanion.run(artifactSlotsJson, uniqueName);
+        if (changes.changes > 0) result.companionsUpdated++;
       }
 
       if (item.abilities.length > 0 && item.itemData) {

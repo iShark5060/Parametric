@@ -7,7 +7,10 @@ import {
 } from './remoteAuth.js';
 
 function wantsJson(req: Request): boolean {
-  return req.accepts('json') !== false;
+  const accept = req.get('accept');
+  if (!accept) return false;
+  if (!accept.toLowerCase().includes('json')) return false;
+  return req.accepts(['json', 'html']) === 'json';
 }
 
 function touchSessionFromState(
@@ -80,14 +83,6 @@ export function requireGameAccess(gameId: string) {
     }
     next();
   };
-}
-
-export function requireAuthApi(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  return requireAuth(req, res, next);
 }
 
 export async function requirePageGameAccess(

@@ -84,7 +84,7 @@ export function CapacityBar({
                 <span className="flex items-center gap-0.5">
                   <img
                     src="/icons/forma-stance.png"
-                    alt="Aura Forma"
+                    alt="Stance Forma"
                     className="h-4 w-4 object-contain"
                   />
                   <span className="text-xs font-medium text-foreground">

@@ -3,11 +3,12 @@ import prettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import-x';
 import n from 'eslint-plugin-n';
 import promise from 'eslint-plugin-promise';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '*.php', 'tests/**', '*.cjs'],
+    ignores: ['**/dist/**', '**/node_modules/**', '*.php', '*.cjs'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -22,9 +23,8 @@ export default [
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        global: 'readonly',
+        ...globals.browser,
+        ...globals.node,
       },
     },
 
@@ -88,6 +88,12 @@ export default [
   {
     files: ['**/scripts/**/*.mjs'],
     rules: { 'n/no-process-exit': 'off' },
+  },
+  {
+    files: ['client/**/*.{ts,tsx}'],
+    rules: {
+      'n/no-unsupported-features/node-builtins': 'off',
+    },
   },
   prettier,
 ];

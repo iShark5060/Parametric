@@ -11,7 +11,10 @@ import { useApi } from '../../hooks/useApi';
 import { getMaxRank, getArcaneDescription } from '../../utils/arcaneUtils';
 import { GlassTooltip } from '../GlassTooltip';
 import { ArcaneCardPreview } from '../ModCard/ArcaneCardPreview';
-import { DEFAULT_ARCANE_LAYOUT } from '../ModCard/cardLayout';
+import {
+  DEFAULT_ARCANE_LAYOUT,
+  normalizeArcaneRarity,
+} from '../ModCard/cardLayout';
 
 interface ArcanePickerPanelProps {
   currentArcaneName?: string;
@@ -208,7 +211,7 @@ function ArcanePickerCard({
       >
         <ArcaneCardPreview
           layout={{ ...DEFAULT_ARCANE_LAYOUT, scale }}
-          rarity={arcane.rarity}
+          rarity={normalizeArcaneRarity(arcane.rarity)}
           arcaneArt={arcane.image_path ? `/images${arcane.image_path}` : ''}
           arcaneName={arcane.name}
           rank={maxRank}
