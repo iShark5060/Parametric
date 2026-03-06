@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,6 +9,7 @@ interface ImportResult {
   category: string;
   table: string;
   count: number;
+  failureCount?: number;
   error?: string;
 }
 
@@ -45,6 +47,17 @@ const OBJECT_KEY_TO_TABLE: Record<string, string> = {
 type ColumnExtractor = (
   item: Record<string, unknown>,
 ) => Record<string, unknown>;
+
+function deterministicUniqueName(
+  item: Record<string, unknown>,
+  prefix: string,
+): string {
+  const contentHash = createHash('sha1')
+    .update(JSON.stringify(item))
+    .digest('hex')
+    .slice(0, 16);
+  return `${prefix}_${contentHash}`;
+}
 
 const EXTRACTORS: Record<string, ColumnExtractor> = {
   corpus_warframes: (item) => ({
@@ -186,7 +199,7 @@ const EXTRACTORS: Record<string, ColumnExtractor> = {
     unique_name:
       item.uniqueName ||
       item.rewardName ||
-      `sortie_${Math.random().toString(36).slice(2)}`,
+      deterministicUniqueName(item, 'sortie'),
     name: item.name || item.rewardName || null,
   }),
 
@@ -194,7 +207,7 @@ const EXTRACTORS: Record<string, ColumnExtractor> = {
     unique_name:
       item.uniqueName ||
       item.name ||
-      `intrinsic_${Math.random().toString(36).slice(2)}`,
+      deterministicUniqueName(item, 'intrinsic'),
     name: item.name || null,
   }),
 
@@ -265,11 +278,11 @@ function defaultExtractor(
 function importCategory(
   tableName: string,
   items: Record<string, unknown>[],
-): number {
+): { count: number; failureCount: number } {
   const db = getCorpusDb();
   const extractor = EXTRACTORS[tableName] || defaultExtractor;
 
-  if (items.length === 0) return 0;
+  if (items.length === 0) return { count: 0, failureCount: 0 };
 
   const sampleCols = extractor(items[0]);
   const colNames = [...Object.keys(sampleCols), 'raw_json'];
@@ -279,6 +292,7 @@ function importCategory(
   const stmt = db.prepare(sql);
   const insertMany = db.transaction((entries: Record<string, unknown>[]) => {
     let count = 0;
+    let failureCount = 0;
     for (const item of entries) {
       const extracted = extractor(item);
       if (!extracted.unique_name) continue;
@@ -288,11 +302,15 @@ function importCategory(
       try {
         stmt.run(...values);
         count++;
-      } catch {
-        // ignore
+      } catch (e) {
+        failureCount++;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(
+          `[Corpus] Failed to insert row into ${tableName} (unique_name=${String(extracted.unique_name)}): ${msg}`,
+        );
       }
     }
-    return count;
+    return { count, failureCount };
   });
 
   return insertMany(items);
@@ -332,7 +350,7 @@ export function importAllToCorpus(): ImportResult[] {
             continue;
           }
 
-          const count = importCategory(
+          const { count, failureCount } = importCategory(
             tableName,
             value as Record<string, unknown>[],
           );
@@ -340,10 +358,17 @@ export function importAllToCorpus(): ImportResult[] {
             category: `${category}/${key}`,
             table: tableName,
             count,
+            ...(failureCount > 0 ? { failureCount } : {}),
           });
-          console.log(
-            `[Corpus] Imported ${count} items into ${tableName} from ${key}`,
-          );
+          if (failureCount > 0) {
+            console.error(
+              `[Corpus] Imported ${count} items into ${tableName} from ${key} with ${failureCount} insert failures`,
+            );
+          } else {
+            console.log(
+              `[Corpus] Imported ${count} items into ${tableName} from ${key}`,
+            );
+          }
         } else if (typeof value === 'object' && value !== null) {
           const tableName = OBJECT_KEY_TO_TABLE[key];
           if (!tableName) {

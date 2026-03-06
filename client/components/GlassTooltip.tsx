@@ -21,10 +21,23 @@ export function GlassTooltip({
   useEffect(() => {
     if (!hovered || !ref.current || disabled) {
       setPos(null);
-      return;
+      return () => undefined;
     }
-    const rect = ref.current.getBoundingClientRect();
-    setPos({ x: rect.left + rect.width / 2, y: rect.top });
+
+    const updatePosition = () => {
+      if (!ref.current) return;
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ x: rect.left + rect.width / 2, y: rect.top });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
   }, [hovered, disabled]);
 
   return (

@@ -382,11 +382,11 @@ export function ModBuilder() {
   useEffect(() => {
     if (!selectedEquipment) {
       setSlots([]);
+      setDefaultPolarities([]);
       return;
     }
 
-    if (buildId && slots.length > 0) return;
-    if (buildId) return;
+    const shouldInitializeSlots = !buildId;
 
     const config =
       EQUIPMENT_SLOT_CONFIGS[equipmentType] || EQUIPMENT_SLOT_CONFIGS.warframe;
@@ -458,10 +458,16 @@ export function ModBuilder() {
       newSlots.push({ index: idx++, type: 'exilus', polarity: pol });
     }
 
-    setSlots(newSlots);
     setDefaultPolarities(
       newSlots.map((s) => ({ polarity: s.polarity, type: s.type })),
     );
+    // Only gate initial slot hydration on slot count so user edits
+    // (mod placements/ranks/polarity swaps) do not retrigger this initializer.
+    if (!shouldInitializeSlots) {
+      return;
+    }
+
+    setSlots(newSlots);
     setHelminthConfig(undefined);
   }, [selectedEquipment, equipmentType, buildId, slots.length]);
 
@@ -477,6 +483,9 @@ export function ModBuilder() {
   };
 
   const [searchResetKey, setSearchResetKey] = useState(0);
+  const openRivenEditorForSlotRef = useRef<number | null>(null);
+  const placedNewRivenRef = useRef(false);
+  const showRivenLimitToastRef = useRef(false);
 
   const getDefaultRivenConfig = useCallback((): RivenConfig => {
     return {
@@ -493,9 +502,9 @@ export function ModBuilder() {
   const handleModDrop = useCallback(
     (slotIndex: number, mod: Mod) => {
       const isRivenPlaceholder = mod.unique_name === RIVEN_PLACEHOLDER_UNIQUE;
-      const openRivenEditorForSlot = { value: null as number | null };
-      const placedNewRiven = { value: false };
-      const showRivenLimitToast = { value: false };
+      openRivenEditorForSlotRef.current = null;
+      placedNewRivenRef.current = false;
+      showRivenLimitToastRef.current = false;
       setSlots((prev) => {
         const targetSlot = prev.find((s) => s.index === slotIndex);
         if (!targetSlot) return prev;
@@ -506,12 +515,12 @@ export function ModBuilder() {
 
         if (isRivenPlaceholder) {
           if (targetSlot.mod && isRivenMod(targetSlot.mod)) {
-            openRivenEditorForSlot.value = slotIndex;
+            openRivenEditorForSlotRef.current = slotIndex;
             return prev;
           }
           const existingRiven = prev.find((s) => s.mod && isRivenMod(s.mod));
           if (existingRiven && existingRiven.index !== slotIndex) {
-            showRivenLimitToast.value = true;
+            showRivenLimitToastRef.current = true;
             return prev;
           }
         }
@@ -529,8 +538,8 @@ export function ModBuilder() {
           ? createRivenMod(rivenConfig, mod.image_path)
           : mod;
         if (isRivenPlaceholder) {
-          openRivenEditorForSlot.value = slotIndex;
-          placedNewRiven.value = true;
+          openRivenEditorForSlotRef.current = slotIndex;
+          placedNewRivenRef.current = true;
         }
 
         const updated = prev.map((s) =>
@@ -547,14 +556,14 @@ export function ModBuilder() {
         );
         return applySetPieceDelta(prev, updated);
       });
-      if (showRivenLimitToast.value) {
+      if (showRivenLimitToastRef.current) {
         setRivenToastMessage('Only one Riven mod can be equipped at a time.');
         return;
       }
-      if (openRivenEditorForSlot.value !== null) {
-        setEditingRivenSlot(openRivenEditorForSlot.value);
+      if (openRivenEditorForSlotRef.current !== null) {
+        setEditingRivenSlot(openRivenEditorForSlotRef.current);
         setDraftRivenSlot(
-          placedNewRiven.value ? openRivenEditorForSlot.value : null,
+          placedNewRivenRef.current ? openRivenEditorForSlotRef.current : null,
         );
       }
       setSearchResetKey((k) => k + 1);
@@ -862,6 +871,18 @@ export function ModBuilder() {
   };
 
   const [compareToast, setCompareToast] = useState(false);
+  const compareToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      if (compareToastTimeoutRef.current !== null) {
+        clearTimeout(compareToastTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const addToCompare = () => {
     if (!selectedEquipment || equipmentType === 'warframe') return;
     const weapon = selectedEquipment as Weapon;
@@ -882,7 +903,13 @@ export function ModBuilder() {
       timestamp: Date.now(),
     });
     setCompareToast(true);
-    setTimeout(() => setCompareToast(false), 1500);
+    if (compareToastTimeoutRef.current !== null) {
+      clearTimeout(compareToastTimeoutRef.current);
+    }
+    compareToastTimeoutRef.current = setTimeout(() => {
+      setCompareToast(false);
+      compareToastTimeoutRef.current = null;
+    }, 1500);
   };
 
   const confirmSave = async () => {

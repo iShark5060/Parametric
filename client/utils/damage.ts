@@ -55,18 +55,33 @@ export function extractElementMods(slots: ModSlot[]): Array<{
 
     try {
       const descriptions: string[] = JSON.parse(modDesc);
-      for (const desc of descriptions) {
-        const lower = desc.toLowerCase();
-        for (const element of PRIMARY_ELEMENTS) {
-          if (lower.includes(`${element.toLowerCase()} damage`)) {
-            const match = desc.match(/\+?([\d.]+)%/);
-            const value = match ? parseFloat(match[1]) : 0;
-            result.push({
-              slotIndex: slot.index,
-              element,
-              value,
-            });
-          }
+      if (!Array.isArray(descriptions) || descriptions.length === 0) continue;
+
+      const currentRank = (slot as ModSlot & { currentRank?: number })
+        .currentRank;
+      const rankValue =
+        typeof slot.rank === 'number'
+          ? slot.rank
+          : typeof currentRank === 'number'
+            ? currentRank
+            : descriptions.length - 1;
+      const rankIndex = Math.min(
+        Math.max(Math.trunc(rankValue), 0),
+        descriptions.length - 1,
+      );
+      const desc = descriptions[rankIndex];
+      if (typeof desc !== 'string') continue;
+
+      const lower = desc.toLowerCase();
+      for (const element of PRIMARY_ELEMENTS) {
+        if (lower.includes(`${element.toLowerCase()} damage`)) {
+          const match = desc.match(/\+?([\d.]+)%/);
+          const value = match ? parseFloat(match[1]) : 0;
+          result.push({
+            slotIndex: slot.index,
+            element,
+            value,
+          });
         }
       }
     } catch {

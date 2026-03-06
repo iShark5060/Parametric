@@ -131,9 +131,9 @@ export function AppRoutes() {
             <Route path={APP_PATHS.admin} element={<AdminPage />} />
             <Route path={APP_PATHS.profile} element={<ProfilePage />} />
             <Route path={APP_PATHS.legal} element={<LegalPage />} />
-            <Route path="*" element={<NotFoundPage />} />
           </Route>
           <Route path={APP_PATHS.login} element={<LoginPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </ChunkErrorBoundary>

@@ -17,12 +17,12 @@ import {
 import { APP_PATHS, buildNewPath } from '../../app/paths';
 import bgArt from '../../assets/background.txt?raw';
 import feathers from '../../assets/feathers.png';
-import { Menu } from '../../components/ui/Menu';
 import { useCompare } from '../../context/CompareContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../features/auth/AuthContext';
 import { getProfileIconSrc } from '../../utils/profileIcons';
 import { CompareBar } from '../Compare/CompareBar';
+import { Menu } from '../ui/Menu';
 
 export function Layout() {
   const [showAddBuild, setShowAddBuild] = useState(false);

@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import type {
@@ -628,7 +628,27 @@ function getDispositionPips(value: number): number {
 function DpsInfoTip({ isMelee }: { isMelee: boolean }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (btnRef.current?.contains(target)) return;
+      if (tooltipRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [open]);
 
   const toggle = () => {
     setOpen((prev) => {
@@ -646,7 +666,6 @@ function DpsInfoTip({ isMelee }: { isMelee: boolean }) {
         ref={btnRef}
         className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none text-muted/60 transition-colors hover:bg-glass-hover hover:text-muted"
         onClick={toggle}
-        onBlur={() => setOpen(false)}
         title="What do these numbers mean?"
       >
         i
@@ -655,6 +674,7 @@ function DpsInfoTip({ isMelee }: { isMelee: boolean }) {
         pos &&
         createPortal(
           <div
+            ref={tooltipRef}
             className="fixed z-[9999] w-52 rounded-lg border border-glass-border bg-black/40 p-2.5 text-[10px] leading-snug text-muted shadow-2xl backdrop-blur-xl"
             style={{
               top: pos.top,

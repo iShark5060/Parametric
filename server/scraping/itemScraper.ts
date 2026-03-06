@@ -24,6 +24,16 @@ export interface ScrapedItemData {
   fireBehaviors: Record<string, unknown>[];
 }
 
+interface NextDataShape {
+  props?: {
+    pageProps?: {
+      item?: {
+        data?: Record<string, unknown>;
+      };
+    };
+  };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -41,11 +51,36 @@ export async function scrapeItemPage(
   const scriptContent = $('#__NEXT_DATA__').html();
   if (!scriptContent) throw new Error(`No __NEXT_DATA__ found on ${url}`);
 
-  const nextData = JSON.parse(scriptContent);
-  const itemData = nextData?.props?.pageProps?.item?.data || {};
+  let nextData: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(scriptContent) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      nextData = parsed as Record<string, unknown>;
+    } else {
+      console.warn(
+        `[Scraper] __NEXT_DATA__ for ${url} was not an object; using empty data`,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[Scraper] Failed to parse __NEXT_DATA__ for ${url}:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
+  const itemData =
+    (nextData as NextDataShape).props?.pageProps?.item?.data || {};
 
-  const artifactSlots: string[] = itemData.ArtifactSlots || [];
-  const fireBehaviors: Record<string, unknown>[] = itemData.Behaviors || [];
+  const artifactSlots = Array.isArray(itemData.ArtifactSlots)
+    ? itemData.ArtifactSlots.filter(
+        (slot): slot is string => typeof slot === 'string',
+      )
+    : [];
+  const fireBehaviors = Array.isArray(itemData.Behaviors)
+    ? itemData.Behaviors.filter(
+        (behavior): behavior is Record<string, unknown> =>
+          !!behavior && typeof behavior === 'object',
+      )
+    : [];
 
   const abilities: ScrapedAbility[] = [];
   $('[class*="abilityTooltip"]').each((_, tooltipEl) => {

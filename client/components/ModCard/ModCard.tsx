@@ -304,12 +304,34 @@ function CollapsedHoverExpand({
   const TILT_MAX_DEG = 15;
 
   useEffect(() => {
-    if (!cardRef.current) {
+    const node = cardRef.current;
+    if (!node) {
       setPos(null);
-      return;
+      return () => undefined;
     }
-    const rect = cardRef.current.getBoundingClientRect();
-    setPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+
+    const updatePos = (): void => {
+      const rect = node.getBoundingClientRect();
+      setPos({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+    };
+
+    updatePos();
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updatePos();
+      });
+      resizeObserver.observe(node);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updatePos, true);
+      window.removeEventListener('resize', updatePos);
+      resizeObserver?.disconnect();
+    };
   }, [cardRef]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { apiFetch } from '../utils/api';
+import { getApiErrorDetails } from '../utils/apiErrorUtils';
 
 const LEGACY_STORAGE_KEY = 'parametric_loadouts';
 const MIGRATED_KEY = 'parametric_loadouts_migrated_v1';
@@ -39,35 +40,6 @@ function readLegacyLoadouts(): Loadout[] {
   } catch {
     return [];
   }
-}
-
-async function getApiErrorDetails(response: Response): Promise<string> {
-  const statusText = `${response.status} ${response.statusText}`.trim();
-  try {
-    const body = (await response.clone().json()) as {
-      error?: unknown;
-      message?: unknown;
-    };
-    if (typeof body.error === 'string' && body.error.length > 0) {
-      return `${statusText}: ${body.error}`;
-    }
-    if (typeof body.message === 'string' && body.message.length > 0) {
-      return `${statusText}: ${body.message}`;
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    const text = await response.clone().text();
-    if (text.trim().length > 0) {
-      return `${statusText}: ${text.trim()}`;
-    }
-  } catch {
-    // ignore
-  }
-
-  return statusText || 'Unknown API error';
 }
 
 export function useLoadoutStorage() {
@@ -225,8 +197,15 @@ export function useLoadoutStorage() {
     }
 
     void (async () => {
-      await migrateLegacyLoadouts();
-      await refresh();
+      try {
+        await migrateLegacyLoadouts();
+        await refresh();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('Failed during loadout migration bootstrap', error);
+        setLoadoutError(message);
+        setLoading(false);
+      }
     })();
   }, [refresh]);
 

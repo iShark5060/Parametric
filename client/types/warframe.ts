@@ -133,9 +133,11 @@ export type EquipmentType =
   | 'archgun'
   | 'archmelee'
   | 'companion'
+  | 'beast_claws'
   | 'archwing'
   | 'necramech'
-  | 'kdrive';
+  | 'kdrive'
+  | 'tektolyst';
 
 export type SlotType = 'general' | 'aura' | 'stance' | 'exilus' | 'posture';
 
@@ -194,9 +196,11 @@ export const EQUIPMENT_TYPE_LABELS: Record<EquipmentType, string> = {
   archgun: 'Arch-Gun',
   archmelee: 'Arch-Melee',
   companion: 'Companion',
+  beast_claws: 'Beast Claws',
   archwing: 'Archwing',
   necramech: 'Necramech',
   kdrive: 'K-Drive',
+  tektolyst: 'Tektolyst',
 };
 
 export const EQUIPMENT_TYPE_ORDER: EquipmentType[] = [
@@ -205,11 +209,13 @@ export const EQUIPMENT_TYPE_ORDER: EquipmentType[] = [
   'secondary',
   'melee',
   'companion',
+  'beast_claws',
   'archwing',
   'archgun',
   'archmelee',
   'necramech',
   'kdrive',
+  'tektolyst',
 ];
 
 export const POLARITIES = {
@@ -304,7 +310,10 @@ export interface EquipmentSlotConfig {
   hasSecondAura: boolean;
 }
 
-export const EQUIPMENT_SLOT_CONFIGS: Record<string, EquipmentSlotConfig> = {
+export const EQUIPMENT_SLOT_CONFIGS: Record<
+  EquipmentType,
+  EquipmentSlotConfig
+> = {
   warframe: {
     generalSlots: 8,
     hasAura: true,

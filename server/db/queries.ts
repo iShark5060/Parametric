@@ -98,8 +98,8 @@ function restoreImagePaths(pathMap: Map<string, string>): void {
     db.prepare(`UPDATE ${table} SET image_path = ? WHERE unique_name = ?`),
   );
   const tx = db.transaction(() => {
-    for (const [uniqueName, imagePath] of pathMap) {
-      for (const stmt of stmts) {
+    for (const stmt of stmts) {
+      for (const [uniqueName, imagePath] of pathMap) {
         stmt.run(imagePath, uniqueName);
       }
     }

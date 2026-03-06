@@ -62,15 +62,37 @@ export function calculateFinalDamage(
   return result;
 }
 
+function getPrimaryElementDamageIndex(element: PrimaryElement): number {
+  return DAMAGE_TYPES.indexOf(element as DamageType);
+}
+
+/**
+ * Expected baseDamage layout:
+ * - baseDamage[0..2] are physical damage in DAMAGE_TYPES order (Impact, Puncture, Slash)
+ * - primary elemental entries are read via DAMAGE_TYPES index lookup so
+ *   baseDamage[indexOf(PRIMARY_ELEMENTS[i] in DAMAGE_TYPES)] maps each element.
+ *
+ * This avoids hard-coding positional offsets (e.g. 3 + i) and keeps coupling to
+ * DAMAGE_TYPES/PRIMARY_ELEMENTS explicit if ordering changes.
+ */
 function identifyInnateElements(
   baseDamage: number[],
 ): Array<{ element: PrimaryElement; value: number }> {
   const result: Array<{ element: PrimaryElement; value: number }> = [];
+  const normalizedBaseDamage =
+    baseDamage.length >= DAMAGE_TYPES.length
+      ? baseDamage
+      : [
+          ...baseDamage,
+          ...new Array(DAMAGE_TYPES.length - baseDamage.length).fill(0),
+        ];
 
-  for (let i = 0; i < PRIMARY_ELEMENTS.length; i++) {
-    const value = baseDamage[3 + i] || 0;
+  for (const element of PRIMARY_ELEMENTS) {
+    const idx = getPrimaryElementDamageIndex(element);
+    if (idx < 0) continue;
+    const value = normalizedBaseDamage[idx] || 0;
     if (value > 0) {
-      result.push({ element: PRIMARY_ELEMENTS[i], value });
+      result.push({ element, value });
     }
   }
 

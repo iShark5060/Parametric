@@ -15,7 +15,7 @@ type RivenRollRule = {
   negativeMultiplier: number;
 };
 
-const PRIMARY_BASELINES: BaselineMap = {
+const PRIMARY_BASELINES = {
   Damage: 165,
   Multishot: 99,
   'Critical Chance': 149.9,
@@ -36,9 +36,9 @@ const PRIMARY_BASELINES: BaselineMap = {
   Cold: 89.9,
   Electricity: 89.9,
   Toxin: 89.9,
-};
+} as const satisfies BaselineMap;
 
-const SECONDARY_BASELINES: BaselineMap = {
+const SECONDARY_BASELINES = {
   Damage: 220,
   Multishot: 120,
   'Critical Chance': 180,
@@ -59,9 +59,9 @@ const SECONDARY_BASELINES: BaselineMap = {
   Cold: 90,
   Electricity: 90,
   Toxin: 90,
-};
+} as const satisfies BaselineMap;
 
-const MELEE_BASELINES: BaselineMap = {
+const MELEE_BASELINES = {
   Damage: 120,
   'Critical Chance': 180,
   'Critical Damage': 120,
@@ -80,23 +80,23 @@ const MELEE_BASELINES: BaselineMap = {
   Cold: 90,
   Electricity: 90,
   Toxin: 90,
-};
+} as const satisfies BaselineMap;
 
-const ARCHGUN_BASELINES: BaselineMap = {
+const ARCHGUN_BASELINES = {
   ...PRIMARY_BASELINES,
   Damage: 140,
   Multishot: 80,
   'Critical Chance': 130,
   'Critical Damage': 90,
   'Fire Rate': 50,
-};
+} as const satisfies BaselineMap;
 
-const BASELINES: Record<RivenWeaponType, BaselineMap> = {
+const BASELINES = {
   primary: PRIMARY_BASELINES,
   secondary: SECONDARY_BASELINES,
   melee: MELEE_BASELINES,
   archgun: ARCHGUN_BASELINES,
-};
+} as const satisfies Record<RivenWeaponType, BaselineMap>;
 
 const RIVEN_ROLL_RULES: Record<string, RivenRollRule> = {
   '2-0': { positiveMultiplier: 0.99, negativeMultiplier: 0 },
@@ -129,7 +129,8 @@ export function getRivenBaselineValue(
   stat: string,
   weaponType: RivenWeaponType,
 ): number | null {
-  return BASELINES[weaponType][stat] ?? null;
+  const baselineMap = BASELINES[weaponType] as BaselineMap;
+  return baselineMap[stat] ?? null;
 }
 
 function toOneDecimal(value: number): number {

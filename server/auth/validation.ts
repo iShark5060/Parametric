@@ -45,8 +45,11 @@ export function validateBody<T extends z.ZodType>(
 ): z.infer<T> | null {
   const result = schema.safeParse(body);
   if (!result.success) {
-    const firstError = result.error.issues[0]?.message ?? 'Invalid input';
-    res.status(400).json({ error: firstError });
+    const errors = result.error.issues.map((issue) => ({
+      path: issue.path.join('.'),
+      message: issue.message,
+    }));
+    res.status(400).json({ errors });
     return null;
   }
   return result.data;

@@ -5,7 +5,7 @@
 
 # Data & import (user content)
 data/
-import/
+/import/
 _resources/
 
 # Node

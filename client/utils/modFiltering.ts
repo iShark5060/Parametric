@@ -1,6 +1,6 @@
 import type { Mod, EquipmentType } from '../types/warframe';
 
-const VARIANT_PREFIXES = [
+export const VARIANT_PREFIXES = [
   'Primed',
   'Archon',
   'Umbral',
@@ -38,7 +38,7 @@ export function isModLockedOut(candidate: Mod, equippedMods: Mod[]): boolean {
   return equippedMods.some((m) => getModLockoutKey(m) === candidateKey);
 }
 
-const WEAPON_CATEGORY_TO_MOD_COMPAT: Record<string, string[]> = {
+export const WEAPON_CATEGORY_TO_MOD_COMPAT: Record<string, string[]> = {
   LongGuns: ['Rifle', 'PRIMARY', 'Assault Rifle'],
   Shotgun: ['Shotgun', 'PRIMARY'],
   Bow: ['Bow', 'PRIMARY'],
@@ -224,15 +224,7 @@ function isCompanionModCompatible(
     modType === 'KUBROW' ||
     modType === 'HELMINTH CHARGER'
   ) {
-    if (
-      compatUpper === 'COMPANION' ||
-      compatUpper === 'BEAST' ||
-      compatUpper === 'ROBOTIC'
-    ) {
-      return true;
-    }
-
-    return true;
+    return ['COMPANION', 'BEAST', 'ROBOTIC'].includes(compatUpper);
   }
 
   return false;

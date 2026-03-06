@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 
 import {
   authLoginRedirect,
-  requireAuthApi,
+  requireAuth,
   requireGameAccess,
   requirePageGameAccess,
 } from './auth/middleware.js';
@@ -30,7 +30,7 @@ import {
   ensureDataDirs,
 } from './config.js';
 import { createCentralSchema } from './db/centralSchema.js';
-import { getCentralDb } from './db/connection.js';
+import { closeAll, getCentralDb } from './db/connection.js';
 import { createAppSchema } from './db/schema.js';
 import { seedArchonShards } from './db/seedArchonShards.js';
 import { runStartupPipeline } from './import/startupPipeline.js';
@@ -161,7 +161,7 @@ app.use('/api/auth', authRouter);
 app.use(
   '/api',
   appApiLimiter,
-  requireAuthApi,
+  requireAuth,
   requireGameAccess(GAME_ID),
   apiRouter,
 );
@@ -266,7 +266,7 @@ const server = app.listen(PORT, HOST, () => {
     `[${APP_NAME}] Server running on http://${HOST}:${PORT} (${NODE_ENV})`,
   );
 
-  runStartupPipeline().catch((err) => {
+  runStartupPipeline().catch((err: unknown) => {
     console.error('[Startup] Pipeline failed:', err);
   });
 });
@@ -278,9 +278,9 @@ function shutdown(): void {
     if (done) return;
     done = true;
     try {
-      centralDb.close();
+      closeAll();
     } catch (err) {
-      console.error('[Shutdown] Failed to close central DB:', err);
+      console.error('[Shutdown] Failed to close DB connections:', err);
     }
     process.exit(0); // eslint-disable-line n/no-process-exit -- required for graceful shutdown
   }

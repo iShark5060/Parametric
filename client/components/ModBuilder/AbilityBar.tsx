@@ -119,9 +119,8 @@ export function AbilityBar({
   const dbAbilities = warframeAbilities?.items || [];
 
   const getDbAbility = (ability: ParsedAbility): Ability | undefined => {
-    return dbAbilities.find(
-      (a) => a.unique_name === ability.unique_name || a.name === ability.name,
-    );
+    if (!ability.unique_name) return undefined;
+    return dbAbilities.find((a) => a.unique_name === ability.unique_name);
   };
 
   const getAbilityIcon = (ability: ParsedAbility): string | undefined => {

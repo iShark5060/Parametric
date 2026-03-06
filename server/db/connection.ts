@@ -35,12 +35,3 @@ export function closeAll(): void {
   }
   closeCorpusDb();
 }
-
-process.on('SIGINT', () => {
-  closeAll();
-  process.exit(0); // eslint-disable-line n/no-process-exit
-});
-process.on('SIGTERM', () => {
-  closeAll();
-  process.exit(0); // eslint-disable-line n/no-process-exit
-});

@@ -28,6 +28,7 @@ export function BuildOverview() {
   const navigate = useNavigate();
   const [showNewLoadout, setShowNewLoadout] = useState(false);
   const [newLoadoutName, setNewLoadoutName] = useState('');
+  const [newLoadoutError, setNewLoadoutError] = useState<string | null>(null);
   const [linkingBuild, setLinkingBuild] = useState<StoredBuild | null>(null);
 
   const grouped = useMemo<BuildsByCategory[]>(() => {
@@ -50,11 +51,21 @@ export function BuildOverview() {
     }));
   }, [builds]);
 
-  const handleCreateLoadout = () => {
-    if (!newLoadoutName.trim()) return;
-    void createLoadout(newLoadoutName.trim());
-    setNewLoadoutName('');
-    setShowNewLoadout(false);
+  const handleCreateLoadout = async () => {
+    const trimmedName = newLoadoutName.trim();
+    if (!trimmedName) return;
+
+    setNewLoadoutError(null);
+    try {
+      await createLoadout(trimmedName);
+      setNewLoadoutName('');
+      setShowNewLoadout(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to create loadout';
+      console.error('Failed to create loadout', error);
+      setNewLoadoutError(message);
+    }
   };
 
   const getBuildById = (id: string) => builds.find((b) => b.id === id);
@@ -104,13 +115,36 @@ export function BuildOverview() {
                   key={loadout.id}
                   loadout={loadout}
                   getBuildById={getBuildById}
-                  onDelete={() => {
-                    if (confirm(`Delete loadout "${loadout.name}"?`))
-                      void deleteLoadout(loadout.id);
+                  onDelete={async () => {
+                    if (!confirm(`Delete loadout "${loadout.name}"?`)) {
+                      return;
+                    }
+                    try {
+                      await deleteLoadout(loadout.id);
+                    } catch (error) {
+                      const message =
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to delete loadout';
+                      console.error('Failed to delete loadout', error);
+                      window.alert(message);
+                    }
                   }}
                   onNavigate={(buildId) => navigate(buildEditPath(buildId))}
-                  onUnlink={(slotType) => {
-                    void unlinkBuild(loadout.id, slotType);
+                  onUnlink={async (slotType) => {
+                    try {
+                      await unlinkBuild(loadout.id, slotType);
+                    } catch (error) {
+                      const message =
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to unlink build from loadout';
+                      console.error(
+                        'Failed to unlink build from loadout',
+                        error,
+                      );
+                      window.alert(message);
+                    }
                   }}
                 />
               ))}
@@ -165,33 +199,53 @@ export function BuildOverview() {
             Group builds into complete character setups.
           </p>
           {showNewLoadout ? (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newLoadoutName}
-                onChange={(e) => setNewLoadoutName(e.target.value)}
-                placeholder="Loadout name..."
-                className="form-input flex-1 text-xs"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateLoadout()}
-              />
-              <button
-                className="btn btn-accent btn-sm"
-                onClick={handleCreateLoadout}
-              >
-                Create
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowNewLoadout(false)}
-              >
-                Cancel
-              </button>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newLoadoutName}
+                  onChange={(e) => {
+                    setNewLoadoutName(e.target.value);
+                    if (newLoadoutError) setNewLoadoutError(null);
+                  }}
+                  placeholder="Loadout name..."
+                  className="form-input flex-1 text-xs"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      void handleCreateLoadout();
+                    }
+                  }}
+                />
+                <button
+                  className="btn btn-accent btn-sm"
+                  onClick={() => {
+                    void handleCreateLoadout();
+                  }}
+                >
+                  Create
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setShowNewLoadout(false);
+                    setNewLoadoutError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+              {newLoadoutError ? (
+                <p className="text-xs text-danger">{newLoadoutError}</p>
+              ) : null}
             </div>
           ) : (
             <button
               className="btn btn-accent w-full text-xs"
-              onClick={() => setShowNewLoadout(true)}
+              onClick={() => {
+                setShowNewLoadout(true);
+                setNewLoadoutError(null);
+              }}
             >
               + New Loadout
             </button>

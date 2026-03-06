@@ -100,9 +100,13 @@ export function SearchBar() {
   );
 
   const handleSelect = (result: SearchResult) => {
-    if (result.equipment_type) {
-      navigate(buildNewPath(result.equipment_type, result.unique_name));
+    if (!result.equipment_type) {
+      setSearchError(`No build route is available yet for "${result.name}".`);
+      setOpen(true);
+      return;
     }
+    setSearchError(null);
+    navigate(buildNewPath(result.equipment_type, result.unique_name));
     setQuery('');
     setOpen(false);
   };

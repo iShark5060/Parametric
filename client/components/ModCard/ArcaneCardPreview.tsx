@@ -1,12 +1,13 @@
 import {
   type ArcaneCardLayout,
+  type ArcaneRarity,
   DEFAULT_ARCANE_LAYOUT,
   getArcaneAsset,
 } from './cardLayout';
 
 export interface ArcaneCardPreviewProps {
   layout?: ArcaneCardLayout;
-  rarity?: string;
+  rarity?: ArcaneRarity;
   arcaneArt: string;
   arcaneName: string;
   rank: number;
