@@ -266,7 +266,7 @@ const server = app.listen(PORT, HOST, () => {
     `[${APP_NAME}] Server running on http://${HOST}:${PORT} (${NODE_ENV})`,
   );
 
-  runStartupPipeline().catch((err) => {
+  runStartupPipeline().catch((err: unknown) => {
     console.error('[Startup] Pipeline failed:', err);
   });
 });
