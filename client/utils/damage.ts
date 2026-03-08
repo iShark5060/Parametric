@@ -74,22 +74,36 @@ export function extractElementMods(slots: ModSlot[]): Array<{
 
       const lower = desc.toLowerCase();
       for (const element of PRIMARY_ELEMENTS) {
-        if (lower.includes(`${element.toLowerCase()} damage`)) {
-          const escapedElement = element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const elementSpecificMatch = desc.match(
+        const elementLower = element.toLowerCase();
+        if (
+          !lower.includes(`${elementLower} damage`) &&
+          !lower.includes(elementLower)
+        ) {
+          continue;
+        }
+
+        const escapedElement = element.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const elementSpecificMatch =
+          desc.match(
             new RegExp(
               `${escapedElement}\\s+damage[^\\d+\\-]*\\+?([\\d.]+)%`,
               'i',
             ),
+          ) ??
+          desc.match(
+            new RegExp(
+              `\\+?([\\d.]+)%\\s*(?:<[^>]+>\\s*)?${escapedElement}(?:\\s+damage)?`,
+              'i',
+            ),
           );
-          const match = elementSpecificMatch ?? desc.match(/\+?([\d.]+)%/);
-          const value = match ? parseFloat(match[1]) : 0;
-          result.push({
-            slotIndex: slot.index,
-            element,
-            value,
-          });
-        }
+
+        const match = elementSpecificMatch ?? desc.match(/\+?([\d.]+)%/);
+        const value = match ? parseFloat(match[1]) : 0;
+        result.push({
+          slotIndex: slot.index,
+          element,
+          value,
+        });
       }
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {

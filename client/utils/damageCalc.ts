@@ -1,4 +1,5 @@
 import { aggregateAllMods, type StatEffects } from './modStatParser';
+import { calculateBuildDamage } from './damage';
 import type { Weapon, ModSlot } from '../types/warframe';
 
 export interface ModdedStats {
@@ -54,6 +55,7 @@ export function calculateWeaponDps(
   const effects = aggregateAllMods(slots, {
     rivenDispositionMultiplier: disposition,
   });
+  const { totalDamage: buildTotalDamage } = calculateBuildDamage(weapon, slots);
   const isMelee = weapon.range != null;
 
   const base = {
@@ -67,7 +69,7 @@ export function calculateWeaponDps(
     reloadTime: weapon.reload_time ?? 0,
   };
 
-  const moddedTotalDamage = base.totalDamage * (1 + effects.baseDamage);
+  const moddedTotalDamage = buildTotalDamage;
   const moddedCritChance = base.critChance * (1 + effects.critChance);
   const moddedCritMultiplier =
     base.critMultiplier * (1 + effects.critMultiplier);
