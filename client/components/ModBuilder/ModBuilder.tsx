@@ -290,7 +290,7 @@ export function ModBuilder() {
   );
 
   useEffect(() => {
-    if (loaded) return;
+    if (loaded) return undefined;
     let alive = true;
 
     async function loadBuildFromApi(targetBuildId: string): Promise<void> {
@@ -373,7 +373,7 @@ export function ModBuilder() {
   }, [buildId, routeEqType, equipmentId, getBuild, loaded]);
 
   useEffect(() => {
-    if (!equipmentData?.items?.length) return;
+    if (!equipmentData?.items?.length) return undefined;
     let alive = true;
 
     async function setSpecialItemSelection(
