@@ -16,6 +16,7 @@ import type {
   RemoteAuthState,
 } from './types';
 import {
+  API_UNAUTHORIZED_EVENT,
   apiFetch,
   buildCentralAuthLoginUrl,
   clearCsrfToken,
@@ -118,6 +119,16 @@ export function AuthProvider({
     void refresh(controller.signal);
     return () => {
       controller.abort();
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      void refresh();
+    };
+    window.addEventListener(API_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => {
+      window.removeEventListener(API_UNAUTHORIZED_EVENT, onUnauthorized);
     };
   }, [refresh]);
 

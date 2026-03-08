@@ -2,6 +2,7 @@ let cachedToken: string | null = null;
 let inFlightPromise: Promise<string | null> | null = null;
 let csrfTokenGeneration = 0;
 let authRedirectPending = false;
+export const API_UNAUTHORIZED_EVENT = 'parametric:api-unauthorized';
 
 function currentAppPath(): string {
   const { pathname, search, hash } = window.location;
@@ -17,6 +18,14 @@ export function redirectToCentralAuth(nextPath?: string): void {
   if (authRedirectPending) return;
   authRedirectPending = true;
   window.location.href = buildCentralAuthLoginUrl(nextPath);
+}
+
+function emitUnauthorized(url: string): void {
+  window.dispatchEvent(
+    new CustomEvent(API_UNAUTHORIZED_EVENT, {
+      detail: { url },
+    }),
+  );
 }
 
 async function getCsrfToken(): Promise<string | null> {
@@ -166,7 +175,7 @@ export async function apiFetch(
     body: requestBody,
   });
   if (response.status === 401) {
-    redirectToCentralAuth();
+    emitUnauthorized(url);
     return response;
   }
   if (!needsCsrf || !(await isCsrfFailureResponse(response))) {
