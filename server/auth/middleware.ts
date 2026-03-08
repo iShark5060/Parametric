@@ -35,6 +35,14 @@ export async function requireAuth(
   next: NextFunction,
 ): Promise<void> {
   const state = await syncSessionFromAuth(req);
+  if (state.auth_service_error) {
+    if (wantsJson(req)) {
+      res.status(503).json({ error: 'Auth service unavailable' });
+      return;
+    }
+    res.status(503).send('Authentication service unavailable');
+    return;
+  }
   if (state.authenticated) {
     next();
     return;
@@ -70,6 +78,10 @@ export function requireGameAccess(gameId: string) {
     next: NextFunction,
   ): Promise<void> => {
     const state = await fetchRemoteAuthState(req, gameId);
+    if (state.auth_service_error) {
+      res.status(503).json({ error: 'Auth service unavailable' });
+      return;
+    }
     if (!state.authenticated || !state.user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
@@ -91,6 +103,10 @@ export async function requirePageGameAccess(
   next: NextFunction,
 ): Promise<void> {
   const state = await fetchRemoteAuthState(req);
+  if (state.auth_service_error) {
+    res.status(503).send('Authentication service unavailable');
+    return;
+  }
   if (!state.authenticated || !state.user) {
     res.redirect(buildAuthLoginUrl(req));
     return;
@@ -122,6 +138,14 @@ export function authLoginRedirect(req: Request, res: Response): void {
 
 export async function authStatus(req: Request, res: Response): Promise<void> {
   const state = await fetchRemoteAuthState(req);
+  if (state.auth_service_error) {
+    res.status(503).json({
+      authenticated: false,
+      has_game_access: false,
+      auth_service_error: true,
+    });
+    return;
+  }
   if (!state.authenticated || !state.user) {
     res.json({ authenticated: false, has_game_access: false });
     return;
@@ -140,6 +164,10 @@ export async function requireAuthApiJson(
   next: NextFunction,
 ): Promise<void> {
   const state = await syncSessionFromAuth(req);
+  if (state.auth_service_error) {
+    res.status(503).json({ error: 'Auth service unavailable' });
+    return;
+  }
   if (state.authenticated) {
     next();
     return;
