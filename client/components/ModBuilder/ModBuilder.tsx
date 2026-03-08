@@ -1103,15 +1103,6 @@ export function ModBuilder() {
     activeShardSlot !== null ||
     activeAbilityIndex !== null;
 
-  const activePanelLabel =
-    rightPanelMode === 'mods'
-      ? 'Mod selection'
-      : rightPanelMode === 'helminth'
-        ? 'Helminth swap'
-        : rightPanelMode === 'arcanes'
-          ? 'Arcane tuning'
-          : 'Shard tuning';
-
   const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (
@@ -1179,18 +1170,6 @@ export function ModBuilder() {
           <div className="glass-shell p-4 sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="status-pill status-pill--accent">
-                    {equipmentType}
-                  </span>
-                  {!isOwnBuild ? (
-                    <span className="status-pill">Read-only shared build</span>
-                  ) : (
-                    <span className="status-pill status-pill--success">
-                      Editable
-                    </span>
-                  )}
-                </div>
                 <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
                   <span className="display-title text-[2rem] text-foreground">
                     {buildName}
@@ -1198,6 +1177,11 @@ export function ModBuilder() {
                   {selectedEquipment && (
                     <span className="text-sm text-muted">
                       {selectedEquipment.name}
+                    </span>
+                  )}
+                  {!isOwnBuild && (
+                    <span className="text-xs text-muted/70">
+                      Read-only shared build
                     </span>
                   )}
                 </div>
@@ -1295,18 +1279,7 @@ export function ModBuilder() {
 
           {selectedEquipment && (
             <div className="glass-shell p-4">
-              <div className="panel-header panel-header--soft px-0 pt-0">
-                <div className="panel-header__copy">
-                  <p className="panel-header__meta">Advanced Slots</p>
-                  <h2 className="panel-header__title">Arcanes and shards</h2>
-                </div>
-                <span className="status-pill">
-                  {supportsArcanes
-                    ? `${arcaneSlotCount} arcane slot${arcaneSlotCount > 1 ? 's' : ''}`
-                    : 'No arcanes'}
-                </span>
-              </div>
-              <div className="mt-3 flex min-h-[136px] items-start justify-between gap-3 overflow-visible">
+              <div className="flex min-h-[136px] items-start justify-between gap-3 overflow-visible">
                 {supportsArcanes && (
                   <ArcaneSlots
                     slotCount={arcaneSlotCount}
@@ -1340,17 +1313,7 @@ export function ModBuilder() {
 
         <div className="min-w-0 flex-1">
           <div className="glass-shell p-4 sm:p-5">
-            <div className="panel-header panel-header--soft px-0 pt-0">
-              <div className="panel-header__copy">
-                <p className="panel-header__meta">Selector Panel</p>
-                <h2 className="panel-header__title">{activePanelLabel}</h2>
-              </div>
-              <span className="status-pill">
-                {hasSelection ? 'Focused' : 'Browsing'}
-              </span>
-            </div>
-
-            <div className="mt-4">
+            <div>
               <div className={rightPanelMode !== 'mods' ? 'hidden' : ''}>
                 <FilterPanel
                   active={rightPanelMode === 'mods'}
@@ -1494,7 +1457,6 @@ export function ModBuilder() {
           ariaLabelledBy="save-build-title"
           className="max-w-md"
         >
-          <p className="panel-header__meta">Persistence</p>
           <h3
             id="save-build-title"
             className="mb-4 text-lg font-semibold text-foreground"

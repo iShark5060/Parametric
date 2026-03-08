@@ -207,7 +207,6 @@ export function EquipmentGridModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="panel-header__meta">Quick Start</p>
             <h2
               id="equipment-grid-title"
               className="text-lg font-semibold text-foreground"
