@@ -1,7 +1,31 @@
+import fs from 'fs';
+import path from 'path';
+
+import { IMAGES_DIR, PROJECT_ROOT } from '../config.js';
 import { getDb } from '../db/connection.js';
 
 const OVERFRAME_BASE_URL = 'https://overframe.gg';
 const BEAST_CLAWS_ICON_PATH = '/icons/beast-claws.png';
+const BEAST_CLAWS_ICON_FILE = 'beast-claws.png';
+
+function ensureBeastClawsIconInDataImages(
+  onProgress?: (msg: string) => void,
+): void {
+  const sourcePath = path.join(PROJECT_ROOT, 'icons', BEAST_CLAWS_ICON_FILE);
+  const targetDir = path.join(IMAGES_DIR, 'icons');
+  const targetPath = path.join(targetDir, BEAST_CLAWS_ICON_FILE);
+
+  if (!fs.existsSync(sourcePath)) {
+    onProgress?.(
+      `Overframe hidden claw sync: icon source not found at ${sourcePath}`,
+    );
+    return;
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+  onProgress?.(`Overframe hidden claw sync: icon copied to ${targetPath}`);
+}
 
 const HIDDEN_BEAST_CLAW_BUILD_PAGES = [
   '/build/new/7150/sly-claws/',
@@ -149,6 +173,7 @@ async function fetchOverframeNextData(
 export async function syncHiddenCompanionWeaponsFromOverframe(
   onProgress?: (msg: string) => void,
 ): Promise<{ insertedOrUpdated: number; found: number }> {
+  ensureBeastClawsIconInDataImages(onProgress);
   const db = getDb();
   const upsert = db.prepare(`
     INSERT INTO weapons (

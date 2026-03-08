@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { buildEditPath } from '../../app/paths';
@@ -11,9 +11,18 @@ import {
 import {
   EQUIPMENT_TYPE_LABELS,
   EQUIPMENT_TYPE_ORDER,
+  EQUIPMENT_SLOT_CONFIGS,
+  POLARITIES,
   type StoredBuild,
   type EquipmentType,
+  type PolarityKey,
 } from '../../types/warframe';
+import { apiFetch } from '../../utils/api';
+import {
+  calculateFormaCount,
+  type FormaCount,
+  type SlotPolarity,
+} from '../../utils/formaCounter';
 import { matchesSpecialItemType } from '../../utils/specialItems';
 
 interface BuildsByCategory {
@@ -22,12 +31,121 @@ interface BuildsByCategory {
   builds: StoredBuild[];
 }
 
-function getUsedFormaCount(build: StoredBuild): number {
+interface EquipmentPolaritySource {
+  unique_name: string;
+  artifact_slots?: string;
+  polarities?: string;
+  aura_polarity?: string;
+  exilus_polarity?: string;
+}
+
+function getPolarizedSlotCount(build: StoredBuild): number {
   const slots = Array.isArray(build.slots) ? build.slots : [];
   return slots.reduce(
     (count, slot) => count + (typeof slot.polarity === 'string' ? 1 : 0),
     0,
   );
+}
+
+function buildDefaultPolarities(
+  equipmentType: EquipmentType,
+  equipment: EquipmentPolaritySource,
+): SlotPolarity[] {
+  const config =
+    EQUIPMENT_SLOT_CONFIGS[equipmentType] || EQUIPMENT_SLOT_CONFIGS.warframe;
+  const defaults: SlotPolarity[] = [];
+
+  const artifactSlots: string[] = (() => {
+    try {
+      return equipment.artifact_slots
+        ? JSON.parse(equipment.artifact_slots)
+        : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const polarityFromAP = (ap: string | undefined): string | undefined => {
+    if (!ap || ap === 'AP_UNIVERSAL') return undefined;
+    return (POLARITIES as Record<string, string>)[ap as PolarityKey]
+      ? ap
+      : undefined;
+  };
+
+  const hasArtifactSlots = artifactSlots.length > 0;
+
+  if (config.hasAura) {
+    const polarity = hasArtifactSlots
+      ? polarityFromAP(artifactSlots[8])
+      : equipment.aura_polarity || undefined;
+    defaults.push({ type: 'aura', polarity });
+  }
+  if (config.hasStance) {
+    const polarity = hasArtifactSlots
+      ? polarityFromAP(artifactSlots[8])
+      : undefined;
+    defaults.push({ type: 'stance', polarity });
+  }
+  if (config.hasPosture) {
+    defaults.push({ type: 'posture', polarity: undefined });
+  }
+
+  const generalPolarities: (string | undefined)[] = (() => {
+    if (hasArtifactSlots) {
+      return artifactSlots
+        .slice(0, config.generalSlots)
+        .reverse()
+        .map(polarityFromAP);
+    }
+    try {
+      const parsed = equipment.polarities
+        ? JSON.parse(equipment.polarities)
+        : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  for (let i = 0; i < config.generalSlots; i += 1) {
+    defaults.push({ type: 'general', polarity: generalPolarities[i] });
+  }
+
+  if (config.hasExilus) {
+    const polarity = hasArtifactSlots
+      ? polarityFromAP(artifactSlots[9])
+      : equipment.exilus_polarity || undefined;
+    defaults.push({ type: 'exilus', polarity });
+  }
+
+  return defaults;
+}
+
+function getUsedFormaCost(
+  build: StoredBuild,
+  equipmentLookup: Record<string, EquipmentPolaritySource>,
+): FormaCount {
+  const equipment = equipmentLookup[build.equipment_unique_name];
+  if (!equipment) {
+    const fallback = getPolarizedSlotCount(build);
+    return {
+      regular: fallback,
+      universal: 0,
+      umbra: 0,
+      stance: 0,
+      total: fallback,
+    };
+  }
+
+  const defaults = buildDefaultPolarities(build.equipment_type, equipment);
+  const desired: SlotPolarity[] = (
+    Array.isArray(build.slots) ? build.slots : []
+  ).map((slot) => ({
+    type: slot.type,
+    polarity: slot.polarity,
+  }));
+
+  return calculateFormaCount(defaults, desired);
 }
 
 function getSlotTypeForBuild(build: StoredBuild): string | null {
@@ -68,11 +186,74 @@ export function BuildOverview() {
   const { loadouts, createLoadout, deleteLoadout, linkBuild, unlinkBuild } =
     useLoadoutStorage();
   const navigate = useNavigate();
+  const [equipmentLookup, setEquipmentLookup] = useState<
+    Record<string, EquipmentPolaritySource>
+  >({});
   const [showNewLoadout, setShowNewLoadout] = useState(false);
   const [newLoadoutName, setNewLoadoutName] = useState('');
   const [newLoadoutError, setNewLoadoutError] = useState<string | null>(null);
   const [linkingBuild, setLinkingBuild] = useState<StoredBuild | null>(null);
   const [linkingLoadout, setLinkingLoadout] = useState<Loadout | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadEquipmentLookup() {
+      const endpoints = [
+        '/api/warframes',
+        '/api/companions',
+        '/api/weapons?type=LongGuns',
+        '/api/weapons?type=Pistols',
+        '/api/weapons?type=Melee',
+        '/api/weapons?type=SpaceGuns',
+        '/api/weapons?type=SpaceMelee',
+        '/api/weapons?type=SentinelWeapons',
+        '/api/weapons?type=SpecialItems',
+      ];
+      const responses = await Promise.all(
+        endpoints.map(async (url) => {
+          try {
+            const response = await apiFetch(url);
+            if (!response.ok) return [] as EquipmentPolaritySource[];
+            const body = (await response.json()) as {
+              items?: EquipmentPolaritySource[];
+            };
+            return Array.isArray(body.items) ? body.items : [];
+          } catch {
+            return [] as EquipmentPolaritySource[];
+          }
+        }),
+      );
+
+      if (!alive) return;
+
+      const nextLookup: Record<string, EquipmentPolaritySource> = {};
+      for (const items of responses) {
+        for (const item of items) {
+          if (!item || typeof item.unique_name !== 'string') continue;
+          if (item.unique_name.length === 0) continue;
+          if (!nextLookup[item.unique_name]) {
+            nextLookup[item.unique_name] = item;
+          }
+        }
+      }
+
+      setEquipmentLookup(nextLookup);
+    }
+
+    void loadEquipmentLookup();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const usedFormaByBuildId = useMemo(() => {
+    const counts: Record<string, FormaCount> = {};
+    for (const build of builds) {
+      counts[build.id] = getUsedFormaCost(build, equipmentLookup);
+    }
+    return counts;
+  }, [builds, equipmentLookup]);
 
   const grouped = useMemo<BuildsByCategory[]>(() => {
     const map = new Map<EquipmentType, StoredBuild[]>();
@@ -262,6 +443,15 @@ export function BuildOverview() {
                   <BuildRow
                     key={build.id}
                     build={build}
+                    usedFormaCost={
+                      usedFormaByBuildId[build.id] ?? {
+                        regular: 0,
+                        universal: 0,
+                        umbra: 0,
+                        stance: 0,
+                        total: 0,
+                      }
+                    }
                     onClick={() => navigate(buildEditPath(build.id))}
                     onDelete={() => {
                       if (confirm(`Delete "${build.name}"?`))
@@ -446,18 +636,42 @@ export function BuildOverview() {
 
 function BuildRow({
   build,
+  usedFormaCost,
   onClick,
   onDelete,
   onLink,
   hasLoadouts,
 }: {
   build: StoredBuild;
+  usedFormaCost: FormaCount;
   onClick: () => void;
   onDelete: () => void;
   onLink: () => void;
   hasLoadouts: boolean;
 }) {
-  const usedFormaCount = getUsedFormaCount(build);
+  const formaEntries = [
+    { key: 'regular', count: usedFormaCost.regular, icon: '/icons/forma.png' },
+    {
+      key: 'universal',
+      count: usedFormaCost.universal,
+      icon: '/icons/forma-omni.png',
+    },
+    {
+      key: 'umbra',
+      count: usedFormaCost.umbra,
+      icon: '/icons/forma-umbra.png',
+    },
+    {
+      key: 'stance',
+      count: usedFormaCost.stance,
+      icon: '/icons/forma-stance.png',
+    },
+  ].filter((entry) => entry.count > 0);
+
+  const visibleFormaEntries =
+    formaEntries.length > 0
+      ? formaEntries
+      : [{ key: 'regular', count: 0, icon: '/icons/forma.png' }];
 
   return (
     <div
@@ -502,17 +716,22 @@ function BuildRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <div className="flex h-10 min-w-14 items-center justify-center gap-1.5 rounded-lg bg-glass px-2">
-          <img
-            src="/icons/forma.png"
-            alt="Forma used"
-            className="h-6 w-6 object-contain"
-            draggable={false}
-          />
-          <span className="text-sm font-semibold text-foreground">
-            {usedFormaCount}
-          </span>
-        </div>
+        {visibleFormaEntries.map((entry) => (
+          <div
+            key={entry.key}
+            className="flex h-10 min-w-14 items-center justify-center gap-1.5 rounded-lg bg-glass px-2"
+          >
+            <img
+              src={entry.icon}
+              alt={`${entry.key} forma used`}
+              className="h-6 w-6 object-contain"
+              draggable={false}
+            />
+            <span className="text-sm font-semibold text-foreground">
+              {entry.count}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
