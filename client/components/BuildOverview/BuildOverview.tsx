@@ -110,7 +110,9 @@ export function BuildOverview() {
 
   const loadoutCompatibleBuilds = useMemo(() => {
     if (!linkingLoadout) return [] as StoredBuild[];
-    const usedSlotTypes = new Set(linkingLoadout.builds.map((b) => b.slot_type));
+    const usedSlotTypes = new Set(
+      linkingLoadout.builds.map((b) => b.slot_type),
+    );
     return builds
       .filter((build) => {
         const slotType = getSlotTypeForBuild(build);
@@ -420,9 +422,7 @@ export function BuildOverview() {
                       </div>
                     </div>
                     <span className="ml-3 shrink-0 text-[10px] text-muted/50">
-                      {getSlotLabel(
-                        getSlotTypeForBuild(build) ?? '',
-                      )}
+                      {getSlotLabel(getSlotTypeForBuild(build) ?? '')}
                     </span>
                   </button>
                 ))}
@@ -592,7 +592,9 @@ function LoadoutRow({
       {expanded && (
         <div className="border-t border-glass-divider bg-glass/30 px-6 py-2">
           {linkedBuildRows.length === 0 ? (
-            <div className="py-2 text-xs text-muted/40">No builds added yet.</div>
+            <div className="py-2 text-xs text-muted/40">
+              No builds added yet.
+            </div>
           ) : (
             linkedBuildRows.map(({ build, slotType }) => (
               <div
