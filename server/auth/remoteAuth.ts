@@ -63,6 +63,7 @@ export interface RemoteAuthState {
   has_game_access: boolean;
   user: RemoteAuthUser | null;
   permissions: string[];
+  auth_service_error?: boolean;
 }
 
 function getAppPublicBaseUrl(): string {
@@ -154,6 +155,15 @@ export async function fetchRemoteAuthState(
         signal: controller.signal,
       });
       if (!upstream.ok) {
+        if (upstream.status >= 500) {
+          return {
+            authenticated: false,
+            has_game_access: false,
+            user: null,
+            permissions: [],
+            auth_service_error: true,
+          };
+        }
         return {
           authenticated: false,
           has_game_access: false,
@@ -183,6 +193,7 @@ export async function fetchRemoteAuthState(
         has_game_access: false,
         user: null,
         permissions: [],
+        auth_service_error: true,
       };
     } finally {
       clearTimeout(timeout);
@@ -196,6 +207,9 @@ export async function syncSessionFromAuth(
   req: Request,
 ): Promise<RemoteAuthState> {
   const state = await fetchRemoteAuthState(req, GAME_ID);
+  if (state.auth_service_error) {
+    return state;
+  }
   if (!state.authenticated || !state.user) {
     delete req.session.user_id;
     delete req.session.username;
