@@ -290,11 +290,15 @@ export function ModBuilder() {
   );
 
   useEffect(() => {
-    if (loaded) return;
+    if (loaded) return undefined;
+    let alive = true;
 
     async function loadBuildFromApi(targetBuildId: string): Promise<void> {
       const response = await apiFetch(`/api/builds/${targetBuildId}`);
       if (!response.ok) {
+        if (alive) {
+          setEquipmentLoadError(`Failed to load build (${response.status})`);
+        }
         return;
       }
       const body = (await response.json()) as {
@@ -308,18 +312,20 @@ export function ModBuilder() {
         can_edit?: boolean;
       };
       if (!body.build) {
+        if (alive) {
+          setEquipmentLoadError('Build payload was missing expected data');
+        }
         return;
       }
       const config = (body.build.mod_config ?? {}) as Partial<BuildConfig>;
+      if (!alive) return;
       setEquipmentType(body.build.equipment_type);
       setBuildName(
         typeof config.name === 'string' ? config.name : body.build.name,
       );
       setTargetEquipmentUniqueName(body.build.equipment_unique_name);
-      setCurrentBuildId(
-        body.can_edit === true ? String(body.build.id) : undefined,
-      );
-      setIsOwnBuild(body.can_edit === true);
+      setCurrentBuildId(String(body.build.id));
+      setIsOwnBuild(true);
       setHelminthConfig(config.helminth);
       if (Array.isArray(config.arcaneSlots)) {
         setArcaneSlots(config.arcaneSlots as ArcaneSlot[]);
@@ -333,6 +339,7 @@ export function ModBuilder() {
       if (Array.isArray(config.slots)) {
         setSlots(config.slots as ModSlot[]);
       }
+      setEquipmentLoadError(null);
     }
 
     if (buildId) {
@@ -344,28 +351,37 @@ export function ModBuilder() {
         setCurrentBuildId(stored.id);
         setIsOwnBuild(true);
         setHelminthConfig(stored.helminth);
+        if (stored.slots?.length) setSlots(stored.slots as ModSlot[]);
         if (stored.arcaneSlots)
           setArcaneSlots(stored.arcaneSlots as ArcaneSlot[]);
         if (stored.shardSlots)
           setShardSlots(stored.shardSlots as ShardSlotConfig[]);
         if (stored.orokinReactor !== undefined)
           setOrokinReactor(stored.orokinReactor);
+        if (!stored.slots?.length) {
+          void loadBuildFromApi(buildId);
+        }
       } else {
         void loadBuildFromApi(buildId);
       }
     } else if (routeEqType && equipmentId) {
       setEquipmentType(routeEqType as EquipmentType);
     }
+    return () => {
+      alive = false;
+    };
   }, [buildId, routeEqType, equipmentId, getBuild, loaded]);
 
   useEffect(() => {
-    if (!equipmentData?.items?.length) return;
+    if (!equipmentData?.items?.length) return undefined;
+    let alive = true;
 
     async function setSpecialItemSelection(
       targetUniqueName: string,
     ): Promise<void> {
       if (selectedEquipment || loaded) return;
       const specialItem = await resolveSpecialItem(targetUniqueName);
+      if (!alive) return;
       if (specialItem) {
         setSelectedEquipment(specialItem);
         setLoaded(true);
@@ -412,6 +428,9 @@ export function ModBuilder() {
         });
       }
     }
+    return () => {
+      alive = false;
+    };
   }, [
     equipmentData,
     buildId,
