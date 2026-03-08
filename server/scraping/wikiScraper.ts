@@ -854,33 +854,55 @@ export function mergeWikiData(
     }
 
     if (data.shards.types.length > 0) {
-      db.prepare('DELETE FROM archon_shard_buffs').run();
-      db.prepare('DELETE FROM archon_shard_types').run();
-
+      const getTypeByName = db.prepare(
+        'SELECT id FROM archon_shard_types WHERE lower(name) = lower(?) LIMIT 1',
+      );
       const insertType = db.prepare(
         'INSERT INTO archon_shard_types (name, icon_path, tauforged_icon_path, sort_order) VALUES (?, ?, ?, ?)',
+      );
+      const updateType = db.prepare(
+        'UPDATE archon_shard_types SET name = ?, icon_path = ?, tauforged_icon_path = ?, sort_order = ? WHERE id = ?',
+      );
+      const getBuffByTypeAndOrder = db.prepare(
+        'SELECT id FROM archon_shard_buffs WHERE shard_type_id = ? AND sort_order = ? LIMIT 1',
       );
       const insertBuff = db.prepare(
         'INSERT INTO archon_shard_buffs (shard_type_id, description, base_value, tauforged_value, value_format, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
       );
+      const updateBuff = db.prepare(
+        'UPDATE archon_shard_buffs SET description = ?, base_value = ?, tauforged_value = ?, value_format = ? WHERE id = ?',
+      );
 
       const typeIdMap = new Map<string, number>();
       for (const st of data.shards.types) {
-        const insertResult = insertType.run(
-          st.name,
-          st.icon_path,
-          st.tauforged_icon_path,
-          st.sort_order,
-        );
-        typeIdMap.set(
-          st.id,
-          Number(
+        const existingType = getTypeByName.get(st.name) as
+          | { id: number }
+          | undefined;
+        if (existingType) {
+          updateType.run(
+            st.name,
+            st.icon_path,
+            st.tauforged_icon_path,
+            st.sort_order,
+            existingType.id,
+          );
+          typeIdMap.set(st.id, existingType.id);
+        } else {
+          const insertResult = insertType.run(
+            st.name,
+            st.icon_path,
+            st.tauforged_icon_path,
+            st.sort_order,
+          );
+          const insertedTypeId = Number(
             (insertResult as { lastInsertRowid: number | bigint })
               .lastInsertRowid,
-          ),
-        );
+          );
+          typeIdMap.set(st.id, insertedTypeId);
+        }
         result.shardTypes++;
       }
+
       for (const sb of data.shards.buffs) {
         const shardTypeId = typeIdMap.get(sb.shard_type_id);
         if (shardTypeId === undefined) {
@@ -889,14 +911,29 @@ export function mergeWikiData(
           );
           continue;
         }
-        insertBuff.run(
+
+        const existingBuff = getBuffByTypeAndOrder.get(
           shardTypeId,
-          sb.description,
-          sb.base_value,
-          sb.tauforged_value,
-          sb.value_format,
           sb.sort_order,
-        );
+        ) as { id: number } | undefined;
+        if (existingBuff) {
+          updateBuff.run(
+            sb.description,
+            sb.base_value,
+            sb.tauforged_value,
+            sb.value_format,
+            existingBuff.id,
+          );
+        } else {
+          insertBuff.run(
+            shardTypeId,
+            sb.description,
+            sb.base_value,
+            sb.tauforged_value,
+            sb.value_format,
+            sb.sort_order,
+          );
+        }
         result.shardBuffs++;
       }
     }
