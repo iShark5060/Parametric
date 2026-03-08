@@ -160,16 +160,12 @@ export function EquipmentGridModal({
             items?: EquipmentItem[];
           };
 
-          const mappedSpecials = (specialData.items || [])
-            .map((item) => {
-              const selectionType = getSpecialItemSelectionType(
-                item,
-                activeTab,
-              );
-              if (!selectionType) return null;
-              return { ...item, selection_type: selectionType };
-            })
-            .filter((item): item is EquipmentItem => item !== null);
+          const mappedSpecials: EquipmentItem[] = [];
+          for (const item of specialData.items || []) {
+            const selectionType = getSpecialItemSelectionType(item, activeTab);
+            if (!selectionType) continue;
+            mappedSpecials.push({ ...item, selection_type: selectionType });
+          }
 
           const merged = [...(baseData.items || []), ...mappedSpecials];
           const byUnique = new Map<string, EquipmentItem>();
