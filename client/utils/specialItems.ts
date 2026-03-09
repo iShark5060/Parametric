@@ -48,8 +48,26 @@ const SPECIAL_NECRAMECH_SELECTION_TYPE: Record<string, EquipmentType> = {
   Ironbride: 'archmelee',
 };
 
+const REQUIRED_EXALTED_STANCES_BY_EQUIPMENT: Record<string, string> = {
+  'desert wind': 'Serene Storm',
+  'desert wind prime': 'Serene Storm',
+  'exalted blade': 'Exalted Blade',
+  'exalted prime blade': 'Exalted Blade',
+  'exalted umbra blade': 'Exalted Blade',
+  'iron staff': 'Primal Fury',
+  'iron staff prime': 'Primal Fury',
+  'shadow claws': 'Ravenous Wraith',
+  'shadow claws prime': 'Ravenous Wraith',
+  'valkyr talons': 'Hysteria',
+  'valkyr prime talons': 'Hysteria',
+};
+
 export function normalizeEquipmentName(name: string): string {
   return name.replace(/^<[^>]+>\s*/i, '').trim();
+}
+
+function normalizeLookupName(name: string): string {
+  return normalizeEquipmentName(name).replace(/\s+/g, ' ').toLowerCase();
 }
 
 export function getSpecialItemSelectionType(
@@ -89,4 +107,12 @@ export function matchesSpecialItemType(
   equipmentType: EquipmentType,
 ): boolean {
   return getSpecialItemSelectionType(name, equipmentType) !== null;
+}
+
+export function getRequiredExaltedStanceName(
+  equipmentName?: string | null,
+): string | null {
+  if (!equipmentName) return null;
+  const lookupName = normalizeLookupName(equipmentName);
+  return REQUIRED_EXALTED_STANCES_BY_EQUIPMENT[lookupName] ?? null;
 }
