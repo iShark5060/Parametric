@@ -19,6 +19,7 @@ import {
   createRivenPlaceholderMod,
   getRivenWeaponType,
 } from '../../utils/riven';
+import { getRequiredExaltedStanceName } from '../../utils/specialItems';
 import { ModCard, CardPreview, DEFAULT_LAYOUT } from '../ModCard';
 
 interface FilterPanelProps {
@@ -32,11 +33,6 @@ interface FilterPanelProps {
   searchResetKey?: number;
 }
 
-const SPECIAL_ITEM_STANCE_FALLBACKS: Record<string, string> = {
-  'valkyr talons': 'Hysteria',
-  'valkyr prime talons': 'Hysteria',
-};
-
 function getSyntheticSpecialItemStanceMods(
   equipmentType: EquipmentType,
   equipment: FilterPanelProps['equipment'],
@@ -47,7 +43,7 @@ function getSyntheticSpecialItemStanceMods(
   }
 
   const normalizedEquipmentName = equipment.name.trim().toLowerCase();
-  const stanceName = SPECIAL_ITEM_STANCE_FALLBACKS[normalizedEquipmentName];
+  const stanceName = getRequiredExaltedStanceName(equipment.name);
   if (!stanceName) {
     return [];
   }
@@ -223,6 +219,12 @@ export function FilterPanel({
     }
     return [...baseMods, ...syntheticStanceMods];
   }, [baseMods, equipmentType, equipment]);
+  const requiredExaltedStanceName = useMemo(() => {
+    if (equipmentType !== 'melee' || !equipment?.name) {
+      return null;
+    }
+    return getRequiredExaltedStanceName(equipment.name);
+  }, [equipmentType, equipment?.name]);
 
   const { compatible, lockedOut } = useMemo(() => {
     const compatMods = filterCompatibleMods(allMods, equipmentType, equipment);
@@ -234,7 +236,12 @@ export function FilterPanel({
       );
     } else if (targetSlotType === 'stance') {
       slotFiltered = compatMods.filter(
-        (m) => (m.type || '').toUpperCase() === 'STANCE' && !isPostureMod(m),
+        (m) =>
+          (m.type || '').toUpperCase() === 'STANCE' &&
+          !isPostureMod(m) &&
+          (!requiredExaltedStanceName ||
+            m.name.trim().toLowerCase() ===
+              requiredExaltedStanceName.toLowerCase()),
       );
     } else if (targetSlotType === 'posture') {
       slotFiltered = compatMods.filter(
@@ -276,6 +283,7 @@ export function FilterPanel({
     equippedMods,
     targetSlotType,
     rarity,
+    requiredExaltedStanceName,
     search,
   ]);
 

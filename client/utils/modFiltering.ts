@@ -1,3 +1,4 @@
+import { getRequiredExaltedStanceName } from './specialItems';
 import type { Mod, EquipmentType } from '../types/warframe';
 
 export const VARIANT_PREFIXES = [
@@ -248,7 +249,16 @@ function isMeleeModCompatible(
   const compatUpper = compat.toUpperCase();
 
   if (modType === 'STANCE') {
-    return !isPostureMod(mod);
+    if (isPostureMod(mod)) {
+      return false;
+    }
+
+    const requiredStanceName = getRequiredExaltedStanceName(equipment?.name);
+    if (!requiredStanceName) {
+      return true;
+    }
+
+    return mod.name.trim().toLowerCase() === requiredStanceName.toLowerCase();
   }
 
   if (modType !== 'MELEE') return false;

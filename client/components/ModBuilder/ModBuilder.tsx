@@ -60,7 +60,10 @@ import {
   normalizeRivenConfigMembership,
   RIVEN_PLACEHOLDER_UNIQUE,
 } from '../../utils/riven';
-import { matchesSpecialItemType } from '../../utils/specialItems';
+import {
+  getRequiredExaltedStanceName,
+  matchesSpecialItemType,
+} from '../../utils/specialItems';
 import { Modal } from '../ui/Modal';
 
 type RightPanelMode = 'mods' | 'helminth' | 'arcanes' | 'shards';
@@ -231,12 +234,14 @@ export function ModBuilder() {
   const [activeShardSlot, setActiveShardSlot] = useState<number | null>(null);
   const [editingRivenSlot, setEditingRivenSlot] = useState<number | null>(null);
   const [draftRivenSlot, setDraftRivenSlot] = useState<number | null>(null);
+  const autoInstalledStanceKeyRef = useRef<string | null>(null);
 
   const routeKey = `${buildId ?? ''}|${routeEqType ?? ''}|${equipmentId ?? ''}`;
   const prevRouteKey = useRef(routeKey);
   useEffect(() => {
     if (prevRouteKey.current === routeKey) return;
     prevRouteKey.current = routeKey;
+    autoInstalledStanceKeyRef.current = null;
     setSelectedEquipment(null);
     setSlots([]);
     setOrokinReactor(false);
@@ -269,6 +274,9 @@ export function ModBuilder() {
     '/api/archon-shards',
   );
   const shardTypes = shardData?.shards || [];
+  const { data: stanceData } = useApi<{ items: Mod[] }>(
+    '/api/mods?types=STANCE',
+  );
 
   const { addSnapshot, snapshots: compareSnapshots } = useCompare();
 
@@ -481,6 +489,38 @@ export function ModBuilder() {
     () => slots.filter((s) => s.mod).map((s) => s.mod!),
     [slots],
   );
+  const selectedRequiredExaltedStanceName = useMemo(() => {
+    if (equipmentType !== 'melee' || !selectedEquipment?.name) {
+      return null;
+    }
+    return getRequiredExaltedStanceName(selectedEquipment.name);
+  }, [equipmentType, selectedEquipment?.name]);
+  const autoInstallStanceMod = useMemo(() => {
+    if (!selectedEquipment || !selectedRequiredExaltedStanceName) {
+      return null;
+    }
+    const stanceMods = stanceData?.items ?? [];
+    const found = stanceMods.find(
+      (mod) =>
+        (mod.type || '').toUpperCase() === 'STANCE' &&
+        !isPostureMod(mod) &&
+        mod.name.trim().toLowerCase() ===
+          selectedRequiredExaltedStanceName.toLowerCase(),
+    );
+    if (found) {
+      return found;
+    }
+    const syntheticUniqueName = `/Synthetic/SpecialItems/Stances/${selectedEquipment.name.trim().toLowerCase().replace(/\s+/g, '-')}`;
+    return {
+      unique_name: syntheticUniqueName,
+      name: selectedRequiredExaltedStanceName,
+      type: 'STANCE',
+      compat_name: selectedEquipment.name,
+      rarity: 'COMMON',
+      base_drain: 0,
+      fusion_limit: 5,
+    } satisfies Mod;
+  }, [selectedEquipment, selectedRequiredExaltedStanceName, stanceData?.items]);
   const rivenWeaponType = useMemo<RivenWeaponType | null>(
     () => getRivenWeaponType(equipmentType),
     [equipmentType],
@@ -585,10 +625,83 @@ export function ModBuilder() {
     setHelminthConfig(undefined);
   }, [selectedEquipment, equipmentType, buildId, slots.length]);
 
+  useEffect(() => {
+    if (
+      buildId ||
+      equipmentType !== 'melee' ||
+      !selectedEquipment?.unique_name
+    ) {
+      return;
+    }
+    if (!selectedRequiredExaltedStanceName || !autoInstallStanceMod) {
+      return;
+    }
+    const autoInstallKey = `${equipmentType}:${selectedEquipment.unique_name}`;
+    if (autoInstalledStanceKeyRef.current === autoInstallKey) {
+      return;
+    }
+
+    let didInstall = false;
+    setSlots((prev) => {
+      const stanceSlot = prev.find((slot) => slot.type === 'stance');
+      if (!stanceSlot || stanceSlot.mod) {
+        return prev;
+      }
+
+      const modType = (autoInstallStanceMod.type || '').toUpperCase();
+      if (
+        modType !== 'STANCE' ||
+        isPostureMod(autoInstallStanceMod) ||
+        autoInstallStanceMod.name.trim().toLowerCase() !==
+          selectedRequiredExaltedStanceName.toLowerCase()
+      ) {
+        return prev;
+      }
+
+      const currentMods = prev
+        .filter((slot) => slot.mod && slot.index !== stanceSlot.index)
+        .map((slot) => slot.mod!);
+      if (isModLockedOut(autoInstallStanceMod, currentMods)) {
+        return prev;
+      }
+
+      didInstall = true;
+      const updated = prev.map((slot) =>
+        slot.index === stanceSlot.index
+          ? {
+              ...slot,
+              mod: autoInstallStanceMod,
+              rank: autoInstallStanceMod.fusion_limit ?? 0,
+              setRank: autoInstallStanceMod.set_stats ? 1 : undefined,
+            }
+          : slot,
+      );
+      return applySetPieceDelta(prev, updated);
+    });
+
+    if (didInstall) {
+      autoInstalledStanceKeyRef.current = autoInstallKey;
+    }
+  }, [
+    buildId,
+    equipmentType,
+    selectedEquipment?.unique_name,
+    selectedRequiredExaltedStanceName,
+    autoInstallStanceMod,
+  ]);
+
   const canPlaceModInSlot = (mod: Mod, slotType: ModSlot['type']): boolean => {
     const modType = (mod.type || '').toUpperCase();
     if (slotType === 'aura' && modType !== 'AURA') return false;
     if (slotType === 'stance' && (modType !== 'STANCE' || isPostureMod(mod))) {
+      return false;
+    }
+    if (
+      slotType === 'stance' &&
+      selectedRequiredExaltedStanceName &&
+      mod.name.trim().toLowerCase() !==
+        selectedRequiredExaltedStanceName.toLowerCase()
+    ) {
       return false;
     }
     if (
