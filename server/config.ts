@@ -3,8 +3,33 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const envPath = path.join(process.cwd(), '.env');
-if (fs.existsSync(envPath)) {
+function resolveEnvFilePath(projectRoot: string): string | null {
+  const normalizedNodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase();
+  const envFileByMode: Record<string, string> = {
+    production: '.env.production',
+    development: '.env.development',
+    test: '.env.test',
+  };
+  const prioritizedFileSet = new Set<string>();
+  const primaryEnvFile = envFileByMode[normalizedNodeEnv];
+  if (primaryEnvFile) {
+    prioritizedFileSet.add(primaryEnvFile);
+  }
+  prioritizedFileSet.add('.env.production');
+  prioritizedFileSet.add('.env.development');
+  const prioritizedFiles = Array.from(prioritizedFileSet);
+
+  for (const fileName of prioritizedFiles) {
+    const candidatePath = path.join(projectRoot, fileName);
+    if (fs.existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+  return null;
+}
+
+const envPath = resolveEnvFilePath(process.cwd());
+if (envPath) {
   try {
     loadEnv({ path: envPath });
   } catch (error) {
@@ -14,6 +39,10 @@ if (fs.existsSync(envPath)) {
     );
     throw error;
   }
+} else {
+  console.debug(
+    `[Config] No env file resolved (envPath is null); skipping loadEnv for cwd "${process.cwd()}".`,
+  );
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
