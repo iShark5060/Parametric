@@ -95,14 +95,13 @@ If you have never used dotenvx before, use this flow:
 
 ## Scripts
 
-| Script                | Description                         |
-| --------------------- | ----------------------------------- |
-| `pnpm run dev:client` | Run Vite client dev server.         |
-| `pnpm run build`      | Build server + client assets.       |
-| `pnpm start`          | Run production server from `dist/`. |
-| `pnpm run lint`       | Run OxLint.                         |
-| `pnpm run format`     | Run Oxfmt formatting.               |
-| `pnpm test`           | Run Vitest test suite.              |
+| Script            | Description                         |
+| ----------------- | ----------------------------------- |
+| `pnpm run build`  | Build server + client assets.       |
+| `pnpm start`      | Run production server from `dist/`. |
+| `pnpm run lint`   | Run OxLint.                         |
+| `pnpm run format` | Run Oxfmt formatting.               |
+| `pnpm test`       | Run Vitest test suite.              |
 
 ## License
 
