@@ -218,8 +218,13 @@ export function BuildShareModal({
   const isWarframe = equipmentType === 'warframe';
   const warframeCalc = useMemo(() => {
     if (!isWarframe) return null;
-    const bonuses = extractArchonShardBonuses(shardSlots, shardTypes);
-    return calculateWarframeStats(equipment as Warframe, slots, bonuses);
+    try {
+      const bonuses = extractArchonShardBonuses(shardSlots, shardTypes);
+      return calculateWarframeStats(equipment as Warframe, slots, bonuses);
+    } catch (err) {
+      console.error('[BuildShareModal] calculateWarframeStats failed', err);
+      return null;
+    }
   }, [equipment, isWarframe, shardSlots, shardTypes, slots]);
 
   const weaponCalc = useMemo(() => {
