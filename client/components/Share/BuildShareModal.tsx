@@ -195,14 +195,9 @@ function ShareFormaCounts({ forma }: { forma?: FormaCount }) {
 function ShareReactorStamp({ active }: { active: boolean }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <img
-        src={orokinReactorImg}
-        alt=""
-        className="h-7 w-7 object-contain"
-        draggable={false}
-      />
+      <img src={orokinReactorImg} alt="" className="h-7 w-7 object-contain" draggable={false} />
       <span
-        className={`text-[13px] font-bold leading-none ${active ? 'text-emerald-400' : 'text-red-400/90'}`}
+        className={`text-[13px] leading-none font-bold ${active ? 'text-emerald-400' : 'text-red-400/90'}`}
         aria-hidden
       >
         {active ? '\u2713' : '\u2717'}
@@ -1018,7 +1013,7 @@ export function BuildShareModal({
                     ) : null}
                   </div>
                 )}
-                <div className="share-export-footer -mx-5 mt-auto flex shrink-0 items-center justify-between bg-[#090d18] px-5 pb-2 pt-3 text-[11px] text-[#a8b8d8]/88">
+                <div className="share-export-footer -mx-5 mt-auto flex shrink-0 items-center justify-between bg-[#090d18] px-5 pt-3 pb-2 text-[11px] text-[#a8b8d8]/88">
                   <span>darkavianlabs.com/parametric</span>
                   <span>Generated in Parametric</span>
                 </div>
