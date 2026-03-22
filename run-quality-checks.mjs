@@ -16,6 +16,9 @@ const color = {
   reset: useColor ? '\x1b[0m' : '',
 };
 
+const WARNING_PATTERN = /(^|\s)(\d+)?\s*warnings?\b/i;
+const ZERO_WARNING_PATTERN = /\b0 warnings?\b/i;
+
 for (const step of steps) {
   console.log(`\n=== ${step.name}: ${step.command} ===`);
   const startedAt = process.hrtime.bigint();
@@ -36,8 +39,8 @@ for (const step of steps) {
   const hasWarnings =
     step.name === 'Lint' &&
     success &&
-    /(^|\s)(\d+)?\s*warnings?\b/i.test(output) &&
-    !/\b0 warnings?\b/i.test(output);
+    WARNING_PATTERN.test(output) &&
+    !ZERO_WARNING_PATTERN.test(output);
   results.push({ name: step.name, success, hasWarnings, elapsedSeconds });
   console.log(
     `--- ${step.name} completed in ${elapsedSeconds.toFixed(2)}s (${success ? (hasWarnings ? 'WARN' : 'PASS') : 'FAIL'}) ---`,
