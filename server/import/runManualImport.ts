@@ -2,13 +2,13 @@ import { ensureDataDirs } from '../config.js';
 import { runStartupPipeline } from './startupPipeline.js';
 
 async function main(): Promise<void> {
-  console.log('[ManualImport] Starting full import pipeline...');
+  console.log('[ManualImport] Full data pipeline (official exports → SQLite → enrichments).');
   ensureDataDirs();
   await runStartupPipeline({
     includeHiddenCompanionWeapons: true,
     includeExaltedStanceMods: true,
+    cliReport: true,
   });
-  console.log('[ManualImport] Import pipeline completed.');
 }
 
 main().catch((error: unknown) => {

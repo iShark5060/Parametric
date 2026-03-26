@@ -21,11 +21,32 @@ export interface ExportFileInfo {
   itemCount?: number;
 }
 
+export interface ImportPipelineStats {
+  /** Categories in REQUIRED_EXPORTS from manifest */
+  requiredCount: number;
+  /** Downloaded new content or replaced file (hash changed) */
+  downloaded: string[];
+  /** Local file already matched manifest hash */
+  skippedUnchanged: string[];
+  failed: Array<{ category: string; error: string }>;
+}
+
+export interface ImportPipelineResult {
+  files: ExportFileInfo[];
+  stats: ImportPipelineStats;
+}
+
 export async function runImportPipeline(
   onStatus?: (status: ImportStatus) => void,
-): Promise<ExportFileInfo[]> {
+): Promise<ImportPipelineResult> {
   const report = onStatus ?? ((s: ImportStatus) => console.log(`[Import] ${s.step}: ${s.message}`));
   const results: ExportFileInfo[] = [];
+  const pipeStats: ImportPipelineStats = {
+    requiredCount: 0,
+    downloaded: [],
+    skippedUnchanged: [],
+    failed: [],
+  };
 
   report({ step: 'manifest', message: 'Downloading and parsing manifest...' });
   let entries: ManifestEntry[];
@@ -44,6 +65,7 @@ export async function runImportPipeline(
   const needed = entries.filter((e) => {
     return REQUIRED_EXPORTS.some((req) => e.category.startsWith(req));
   });
+  pipeStats.requiredCount = needed.length;
 
   report({
     step: 'download',
@@ -62,7 +84,8 @@ export async function runImportPipeline(
     if (fs.existsSync(localPath) && fs.existsSync(hashPath)) {
       const existingHash = fs.readFileSync(hashPath, 'utf-8').trim();
       if (existingHash === entry.hash) {
-        const stats = fs.statSync(localPath);
+        pipeStats.skippedUnchanged.push(entry.category);
+        const fileStat = fs.statSync(localPath);
         report({
           step: 'download',
           message: `Skipping ${entry.category} (hash unchanged)`,
@@ -83,7 +106,7 @@ export async function runImportPipeline(
           filename: localFilename,
           hash: entry.hash,
           localPath,
-          size: stats.size,
+          size: fileStat.size,
           itemCount,
         });
         continue;
@@ -107,7 +130,7 @@ export async function runImportPipeline(
       fs.writeFileSync(localPath, text, 'utf-8');
       fs.writeFileSync(hashPath, entry.hash, 'utf-8');
 
-      const stats = fs.statSync(localPath);
+      const fileStat = fs.statSync(localPath);
       let itemCount: number | undefined;
       try {
         const content = JSON.parse(text);
@@ -116,23 +139,25 @@ export async function runImportPipeline(
         // ignore
       }
 
+      pipeStats.downloaded.push(entry.category);
       results.push({
         category: entry.category,
         filename: localFilename,
         hash: entry.hash,
         localPath,
-        size: stats.size,
+        size: fileStat.size,
         itemCount,
       });
 
       report({
         step: 'download',
-        message: `Downloaded ${entry.category} (${formatSize(stats.size)})`,
+        message: `Downloaded ${entry.category} (${formatSize(fileStat.size)})`,
         progress: i + 1,
         total: needed.length,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      pipeStats.failed.push({ category: entry.category, error: msg });
       report({
         step: 'download',
         message: `Failed to download ${entry.category}: ${msg}`,
@@ -143,14 +168,21 @@ export async function runImportPipeline(
     }
   }
 
+  const summaryMsg =
+    pipeStats.failed.length > 0
+      ? `Finished with ${pipeStats.failed.length} download error(s). ` +
+        `${pipeStats.downloaded.length} updated, ${pipeStats.skippedUnchanged.length} unchanged on disk.`
+      : `Complete: ${pipeStats.downloaded.length} export file(s) updated on disk, ` +
+        `${pipeStats.skippedUnchanged.length} unchanged (hash match).`;
+
   report({
     step: 'complete',
-    message: `Import complete. ${results.length} files downloaded.`,
+    message: summaryMsg,
     progress: needed.length,
     total: needed.length,
   });
 
-  return results;
+  return { files: results, stats: pipeStats };
 }
 
 export function listExportFiles(): ExportFileInfo[] {

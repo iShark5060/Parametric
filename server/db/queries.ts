@@ -58,7 +58,6 @@ export function processExports(): {
   restoreImagePaths(savedImagePaths);
   restoreScrapedData(savedScrapedData);
 
-  console.log('[DB] Processing complete:', counts);
   return counts;
 }
 

@@ -9,7 +9,7 @@
     "validate": "node run-quality-checks.mjs",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.json --noEmit",
     "start": "node dist/server/index.js",
-    "import": "node dist/server/import/runManualImport.js",
+    "data:import": "node dist/server/import/runManualImport.js",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --write .",
