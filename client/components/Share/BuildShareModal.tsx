@@ -320,12 +320,17 @@ function ShareSkillsPanel({
   helminthConfig?: BuildConfig['helminth'];
   iconPx: number;
 }) {
+  const MAX_DESCRIPTION_LENGTH = 900;
+  const TRUNCATED_DESCRIPTION_LENGTH = MAX_DESCRIPTION_LENGTH - 3;
   const desc =
     helminthConfig && selectedReplacement?.description
       ? selectedReplacement.description
       : ownAbilities.find((a) => a.description)?.description;
 
-  const displayDesc = desc != null && desc.length > 900 ? `${desc.slice(0, 897).trim()}...` : desc;
+  const displayDesc =
+    desc != null && desc.length > MAX_DESCRIPTION_LENGTH
+      ? `${desc.slice(0, TRUNCATED_DESCRIPTION_LENGTH).trim()}...`
+      : desc;
 
   return (
     <div className="flex min-h-0 flex-col gap-2">

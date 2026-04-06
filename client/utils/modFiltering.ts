@@ -299,7 +299,7 @@ function isWarframeModCompatible(
     if (mod.subtype && equipment.unique_name) {
       if (
         equipment.unique_name.includes(mod.subtype) ||
-        mod.subtype.includes(equipment.unique_name.replace(/Prime/, ''))
+        mod.subtype.includes(equipment.unique_name.replace(/prime/gi, ''))
       ) {
         return true;
       }
