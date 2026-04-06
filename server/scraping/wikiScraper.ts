@@ -9,6 +9,12 @@ const DEFAULT_FETCH_TIMEOUT = 15_000;
 const SLOT_SECONDARY = 0;
 const SLOT_PRIMARY = 1;
 
+const logger = {
+  warn: (...args: unknown[]): void => {
+    console.warn(...args);
+  },
+};
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -19,7 +25,7 @@ async function fetchWithTimeout(
   timeoutMs = DEFAULT_FETCH_TIMEOUT,
 ): Promise<Response> {
   const controller = new AbortController();
-  const { signal, ...restOptions } = options;
+  const { signal: callerSignal, ...restOptions } = options;
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
@@ -28,11 +34,11 @@ async function fetchWithTimeout(
     controller.abort();
   };
 
-  if (signal) {
-    if (signal.aborted) {
+  if (callerSignal) {
+    if (callerSignal.aborted) {
       controller.abort();
     } else {
-      signal.addEventListener('abort', onAbort, { once: true });
+      callerSignal.addEventListener('abort', onAbort, { once: true });
     }
   }
 
@@ -40,7 +46,7 @@ async function fetchWithTimeout(
     return await fetch(url, { ...restOptions, signal: controller.signal });
   } finally {
     clearTimeout(timeoutId);
-    signal?.removeEventListener('abort', onAbort);
+    callerSignal?.removeEventListener('abort', onAbort);
   }
 }
 
@@ -476,10 +482,9 @@ export async function scrapePassives(
   onlyMissing = false,
 ): Promise<WikiPassiveResult[]> {
   const db = getDb();
-  const baseFilter = `product_category = 'Suits' AND name NOT LIKE '%Prime' AND name NOT LIKE '%Umbra'`;
   const query = onlyMissing
-    ? `SELECT unique_name, name FROM warframes WHERE ${baseFilter} AND passive_description_wiki IS NULL ORDER BY name`
-    : `SELECT unique_name, name FROM warframes WHERE ${baseFilter} ORDER BY name`;
+    ? `SELECT unique_name, name FROM warframes WHERE product_category = 'Suits' AND name NOT LIKE '%Prime' AND name NOT LIKE '%Umbra' AND passive_description_wiki IS NULL ORDER BY name`
+    : `SELECT unique_name, name FROM warframes WHERE product_category = 'Suits' AND name NOT LIKE '%Prime' AND name NOT LIKE '%Umbra' ORDER BY name`;
   const warframes = db.prepare(query).all() as {
     unique_name: string;
     name: string;
@@ -487,7 +492,11 @@ export async function scrapePassives(
 
   if (onlyMissing) {
     const total = (
-      db.prepare(`SELECT COUNT(*) as c FROM warframes WHERE ${baseFilter}`).get() as { c: number }
+      db
+        .prepare(
+          `SELECT COUNT(*) as c FROM warframes WHERE product_category = 'Suits' AND name NOT LIKE '%Prime' AND name NOT LIKE '%Umbra'`,
+        )
+        .get() as { c: number }
     ).c;
     onProgress?.(
       `${warframes.length} warframes need passive scraping (${total - warframes.length} already have data)`,
@@ -668,7 +677,7 @@ export async function scrapeArchonShards(
 
     const parsedValues = parseBuffValues(buffText);
     if (!parsedValues) {
-      console.warn(`[wikiScraper] Skipping unparsable shard buff text: "${buffText}"`);
+      logger.warn(`[wikiScraper] Skipping unparsable shard buff text: "${buffText}"`);
       return;
     }
 
@@ -969,7 +978,7 @@ export function mergeWikiData(
     'UPDATE mods SET augment_for_ability = ? WHERE name = ? AND is_augment = 1',
   );
   const updateRivenDisposition = db.prepare(
-    'UPDATE weapons SET riven_disposition = ? WHERE lower(name) = lower(?)',
+    'UPDATE weapons SET riven_disposition = ? WHERE name = ? COLLATE NOCASE',
   );
   const fallbackRivenDisposition = db.prepare(
     'UPDATE weapons SET riven_disposition = omega_attenuation WHERE riven_disposition IS NULL AND omega_attenuation IS NOT NULL',
