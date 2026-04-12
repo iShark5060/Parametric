@@ -13,11 +13,11 @@ describe('normalizeWeaponIdentityName', () => {
 });
 
 describe('Launcher mod compatibility', () => {
-  it('maps Launcher category to Sniper mods', () => {
-    expect(WEAPON_CATEGORY_TO_MOD_COMPAT.Launcher).toContain('Sniper');
+  it('does not map Sniper via WEAPON_CATEGORY_TO_MOD_COMPAT.Launcher (uses path/name helper instead)', () => {
+    expect(WEAPON_CATEGORY_TO_MOD_COMPAT.Launcher).not.toContain('Sniper');
   });
 
-  it('accepts Sniper-category mods on Launchers', () => {
+  it('accepts Sniper-category mods on Launchers via primaryWeaponAcceptsSniperCategoryMods', () => {
     const sniperMod: Mod = {
       unique_name: '/lotus/upgrades/mods/sniper/test',
       name: 'Sniper Ammo Mutation',

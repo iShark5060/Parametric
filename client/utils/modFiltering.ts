@@ -108,8 +108,8 @@ export const WEAPON_CATEGORY_TO_MOD_COMPAT: Record<string, string[]> = {
   Shotgun: ['Shotgun', 'PRIMARY'],
   Bow: ['Bow', 'PRIMARY'],
   Sniper: ['Sniper', 'PRIMARY'],
-  /** Launchers use rifle-style primaries and accept Sniper-category utility mods (e.g. Sniper Ammo Mutation). */
-  Launcher: ['Launcher', 'Sniper', 'PRIMARY'],
+  /** Sniper-category utility mods on launchers are handled by `primaryWeaponAcceptsSniperCategoryMods` (path/name), not here. */
+  Launcher: ['Launcher', 'PRIMARY'],
 
   Pistols: ['Pistol'],
   Thrown: ['Thrown'],
