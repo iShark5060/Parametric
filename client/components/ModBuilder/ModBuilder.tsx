@@ -343,9 +343,6 @@ export function ModBuilder() {
     [selectedEquipment, equipmentType],
   );
 
-  // Only clear or default valence once `selectedEquipment` is known. While it is still
-  // null, `supportsValence` is false — we must not wipe valence restored from a saved
-  // build's mod_config (otherwise it resets to DEFAULT after the weapon loads).
   useEffect(() => {
     if (equipmentType === 'warframe') {
       if (valenceBonus !== null) setValenceBonus(null);
