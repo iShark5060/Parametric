@@ -137,14 +137,6 @@ export function BuildsCatalogPage() {
 
   return (
     <div className="mx-auto max-w-[2000px] space-y-4">
-      <div className="glass-shell p-5">
-        <h1 className="text-foreground text-xl font-semibold tracking-tight">Builds</h1>
-        <p className="text-muted mt-1 max-w-2xl text-sm">
-          Browse community builds by equipment. Only items that have at least one saved build are
-          listed.
-        </p>
-      </div>
-
       <div className="glass-shell overflow-hidden p-4">
         <div className="border-glass-border bg-glass mb-4 rounded-2xl border p-1.5">
           <div className="flex flex-wrap gap-1">

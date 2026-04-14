@@ -318,13 +318,6 @@ export function BuildOverview() {
 
   return (
     <div className="mx-auto flex max-w-[2000px] flex-col gap-4">
-      <div className="glass-shell p-5">
-        <h1 className="text-foreground text-xl font-semibold tracking-tight">My Builds</h1>
-        <p className="text-muted mt-1 text-sm">
-          Your loadouts and saved builds. Open Builds in the header to browse all community builds
-          by equipment.
-        </p>
-      </div>
       <div className="flex gap-6">
         <div className="min-w-0 flex-1 space-y-4">
           {loadouts.length > 0 && (

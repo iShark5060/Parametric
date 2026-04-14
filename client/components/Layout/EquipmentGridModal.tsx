@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 
-import type { EquipmentType } from '../../types/warframe';
 import { normalizeEquipmentName } from '../../utils/specialItems';
 import {
   CATEGORY_API,
