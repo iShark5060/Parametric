@@ -1290,16 +1290,15 @@ apiRouter.get('/builds/catalog', (req: Request, res: Response) => {
       return;
     }
 
-    const userId = req.session.user_id;
     const rows = db
       .prepare(
         `SELECT equipment_type, equipment_unique_name, COUNT(*) AS build_count
          FROM builds
-         WHERE user_id = ? OR visibility IN ('public', 'unlisted')
+         WHERE visibility IN ('public', 'unlisted')
          GROUP BY equipment_type, equipment_unique_name
          ORDER BY equipment_type ASC, equipment_unique_name ASC`,
       )
-      .all(userId) as Array<{
+      .all() as Array<{
       equipment_type: string;
       equipment_unique_name: string;
       build_count: number;
@@ -1331,15 +1330,14 @@ apiRouter.get('/builds/by-equipment', (req: Request, res: Response) => {
       return;
     }
 
-    const userId = req.session.user_id;
     const rows = db
       .prepare(
         `SELECT * FROM builds
          WHERE equipment_type = ? AND equipment_unique_name = ?
-           AND (user_id = ? OR visibility IN ('public', 'unlisted'))
+           AND visibility IN ('public', 'unlisted')
          ORDER BY updated_at DESC`,
       )
-      .all(equipmentType, equipmentUniqueName, userId) as BuildRow[];
+      .all(equipmentType, equipmentUniqueName) as BuildRow[];
 
     const ownerUsernames = getOwnerUsernames(rows.map((r) => r.user_id));
     res.json({ builds: rows.map((row) => toBuildListItem(row, ownerUsernames)) });
