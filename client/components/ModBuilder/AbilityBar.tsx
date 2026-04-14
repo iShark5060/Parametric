@@ -139,7 +139,10 @@ export function AbilityBar({
           const isActive = activeAbilityIndex === ability.index;
           const displayName =
             isReplaced && selectedReplacement ? selectedReplacement.name : ability.name;
-          const icon = getAbilityIcon(ability);
+          const icon =
+            isReplaced && selectedReplacement?.image_path
+              ? `/images${selectedReplacement.image_path}`
+              : getAbilityIcon(ability);
           const initial = displayName.charAt(0).toUpperCase();
           const dbAb = getDbAbility(ability);
           const energyCost = isReplaced

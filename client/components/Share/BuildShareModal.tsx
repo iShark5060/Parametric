@@ -548,8 +548,10 @@ function ShareSkillsPanel({
           return (
             <div
               key={ability.index}
-              className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-black/25 ${
-                isReplaced ? 'border-red-400/70 ring-1 ring-red-400/50' : 'border-white/15'
+              className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border ${
+                isReplaced
+                  ? 'bg-danger/10 border-red-400/70 ring-1 ring-red-400/50'
+                  : 'border-white/15 bg-black/25'
               }`}
               style={{ width: iconPx, height: iconPx }}
             >
@@ -928,7 +930,7 @@ export function BuildShareModal({
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
-      // already released
+      // ignore
     }
   }
 
@@ -943,7 +945,6 @@ export function BuildShareModal({
         pixelRatio: SHARE_EXPORT_PIXEL_RATIO,
         canvasWidth: SHARE_CANVAS_WIDTH,
         canvasHeight: SHARE_CANVAS_HEIGHT,
-        backgroundColor: '#090d18',
       });
       if (!blob) {
         throw new Error('Export produced an empty image');
