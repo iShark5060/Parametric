@@ -30,6 +30,13 @@
     }
     if (theme !== 'light' && theme !== 'dark') {
       try {
+        theme = (localStorage.getItem('armory.theme.mode') || '').trim();
+      } catch {
+        theme = '';
+      }
+    }
+    if (theme !== 'light' && theme !== 'dark') {
+      try {
         theme = (localStorage.getItem('parametric.theme.mode') || '').trim();
       } catch {
         theme = '';

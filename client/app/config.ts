@@ -8,7 +8,7 @@ function readTrimmedEnv(value: string | undefined, fallback: string): string {
 
 export const APP_DISPLAY_NAME = readTrimmedEnv(
   import.meta.env.VITE_APP_NAME as string | undefined,
-  'Parametric',
+  'Armory',
 );
 
 export const LEGAL_ENTITY_NAME = readTrimmedEnv(

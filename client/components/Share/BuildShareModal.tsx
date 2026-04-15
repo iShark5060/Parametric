@@ -140,7 +140,7 @@ function sanitizeDownloadSegment(value: string, fallback: string, maxLen: number
 function buildShareDownloadFileName(equipmentName: string, buildName: string): string {
   const itemPart = sanitizeDownloadSegment(equipmentName, 'item', 96);
   const buildPart = sanitizeDownloadSegment(buildName, 'build', 96);
-  return `parametric-${itemPart}-${buildPart}.png`;
+  return `armory-${itemPart}-${buildPart}.png`;
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -994,7 +994,7 @@ export function BuildShareModal({
           draggable={false}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-[9px] tracking-[0.2em] text-[#9fb2e8]/95 uppercase">Parametric</p>
+          <p className="text-[9px] tracking-[0.2em] text-[#9fb2e8]/95 uppercase">Armory</p>
           <h4 className="mt-0.5 text-[28px] leading-[1.06] font-semibold tracking-tight text-[#f6f8ff]">
             {buildName}
           </h4>

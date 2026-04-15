@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 
-import { DB_PATH, CENTRAL_DB_PATH } from '../config.js';
+import { ARMORY_DB_PATH, CENTRAL_DB_PATH } from '../config.js';
 import { closeCorpusDb } from './corpus.js';
 
 let db: Database.Database | null = null;
@@ -8,7 +8,7 @@ let centralDb: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (!db) {
-    db = new Database(DB_PATH);
+    db = new Database(ARMORY_DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
   }

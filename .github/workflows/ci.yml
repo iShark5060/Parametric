@@ -1,4 +1,4 @@
-name: Parametric CI/CD
+name: Armory CI/CD
 
 permissions:
   contents: read
@@ -283,7 +283,7 @@ jobs:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=~/.ssh/known_hosts \
               "$SERVER_USER@$SERVER_HOST" \
-              "/usr/local/bin/pm2-restart-safe Parametric"
+              "/usr/local/bin/pm2-restart-safe Armory"
 
       - name: Cleanup SSH key
         if: always()

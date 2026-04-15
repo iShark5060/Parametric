@@ -329,5 +329,5 @@ export function createCorpusSchema(db: Database.Database): void {
     ;
   `);
 
-  console.log('[Corpus] Schema created/verified');
+  console.log('[Armory] Codex export schema created/verified');
 }

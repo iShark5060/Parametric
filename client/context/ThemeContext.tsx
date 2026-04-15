@@ -20,7 +20,8 @@ interface ThemeContextValue {
   setUiStyle: (style: UiStyle) => void;
 }
 
-const THEME_STORAGE_KEY = 'parametric.theme.mode';
+const THEME_STORAGE_KEY = 'armory.theme.mode';
+const LEGACY_THEME_STORAGE_KEY = 'parametric.theme.mode';
 const SHARED_THEME_STORAGE_KEY = 'dal.theme.mode';
 const SHARED_THEME_COOKIE = 'dal.theme.mode';
 const SHARED_THEME_COOKIE_DOMAIN =
@@ -61,7 +62,9 @@ function resolveInitialMode(): ThemeMode {
   if (fromCookie) return fromCookie;
   const shared = window.localStorage.getItem(SHARED_THEME_STORAGE_KEY);
   if (shared === 'light' || shared === 'dark') return shared;
-  const legacy = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const legacy =
+    window.localStorage.getItem(THEME_STORAGE_KEY) ||
+    window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
   if (legacy === 'light' || legacy === 'dark') return legacy;
   return 'dark';
 }

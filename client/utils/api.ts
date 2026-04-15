@@ -2,7 +2,7 @@ let cachedToken: string | null = null;
 let inFlightPromise: Promise<string | null> | null = null;
 let csrfTokenGeneration = 0;
 let authRedirectPending = false;
-export const API_UNAUTHORIZED_EVENT = 'parametric:api-unauthorized';
+export const API_UNAUTHORIZED_EVENT = 'armory:api-unauthorized';
 
 function currentAppPath(): string {
   const { pathname, search, hash } = window.location;
