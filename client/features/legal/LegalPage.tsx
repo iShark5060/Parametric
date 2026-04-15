@@ -1,15 +1,15 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { LEGAL_ENTITY_NAME } from '../../app/config';
+import { LEGAL_ENTITY_NAME, LEGAL_PAGE_URL } from '../../app/config';
 
 export function LegalPage() {
   const { pathname } = useLocation();
-  const onAuthLegalPath = pathname === '/auth/legal';
+  const onAuthLegalPath = pathname === LEGAL_PAGE_URL;
 
   useEffect(() => {
     if (onAuthLegalPath) return;
-    window.location.replace('/auth/legal');
+    window.location.replace(LEGAL_PAGE_URL);
   }, [onAuthLegalPath]);
 
   if (onAuthLegalPath) {

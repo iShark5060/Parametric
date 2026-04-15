@@ -182,14 +182,14 @@ app.get('/readyz', (_req, res) => {
 });
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL?.trim().replace(/\/+$/, '');
-const productionClientDir = path.resolve(__dirname, '..', 'client');
+const clientDir = path.resolve(__dirname, '..', 'client');
 
 function sendLegalSpa(res: express.Response): void {
   if (NODE_ENV !== 'production') {
-    res.status(502).send('Auth service URL is not configured.');
+    res.status(503).send('Auth service URL is not configured.');
     return;
   }
-  res.sendFile(path.join(productionClientDir, 'index.html'));
+  res.sendFile(path.join(clientDir, 'index.html'));
 }
 
 app.get('/auth/profile', publicPageLimiter, (_req, res) => {
@@ -211,7 +211,6 @@ app.get('/auth/legal', publicPageLimiter, (_req, res) => {
 });
 
 if (NODE_ENV === 'production') {
-  const clientDir = path.resolve(__dirname, '..', 'client');
   app.use(publicPageLimiter, express.static(clientDir));
 
   app.get('/login', publicPageLimiter, (req, res) => {
