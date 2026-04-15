@@ -38,7 +38,7 @@ const AUTH_FETCH_TIMEOUT_MS =
     ? parsedAuthFetchTimeoutMs
     : 5000;
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
-const AUTH_STATE_CACHE_KEY = Symbol('parametricAuthStateCache');
+const AUTH_STATE_CACHE_KEY = Symbol('armoryAuthStateCache');
 
 function parseRetryAfterSeconds(value: string | null): number | undefined {
   if (!value) return undefined;

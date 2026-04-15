@@ -1,4 +1,4 @@
-# Parametric
+# Armory
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Cursor](https://img.shields.io/badge/Cursor-IDE-141414?logo=cursor&logoColor=white)](https://cursor.com)
@@ -8,9 +8,9 @@
 ![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-06B6D4?logo=tailwindcss&logoColor=white)
 
-Parametric is a mod builder and planner for Warframe. It mirrors in-game feel where practical and surfaces extra detail and stats.
+Armory is a mod builder and planner for Warframe. It mirrors in-game feel where practical and surfaces extra detail and stats.
 Mod and equipment data come from Digital Extremes’ public export, with wiki and third-party sources used where helpful.
-Parametric also backs Corpus’ Warframe import workflow and uses the central Auth service for login, per-game access, and profile settings.
+Armory also backs Codex’s Warframe import workflow and uses the central Auth service for login, per-game access, and profile settings.
 
 ## Requirements
 
@@ -71,6 +71,8 @@ Use one key per environment to reduce blast radius.
 | `AUTH_SERVICE_URL`         | Shared Auth base URL (`https://…` required in production).                     |
 | `AUTH_FETCH_TIMEOUT_MS`    | Optional timeout (ms) for Auth API calls (default: `5000`).                    |
 | `CENTRAL_DB_PATH`          | Shared central DB for users/sessions/access (default under `./data/`).         |
+| `ARMORY_DB_PATH`           | Optional override for the main app SQLite file (default `./data/armory.db`).   |
+| `CODEX_EXPORT_DB_PATH`     | Optional override for the Codex export mirror DB (default `./data/corpus.db`). |
 | `COOKIE_DOMAIN`            | Optional cross-subdomain cookie domain.                                        |
 | `SESSION_COOKIE_NAME`      | Session cookie name.                                                           |
 | `HELMINTH_WIKI_USER_AGENT` | Optional `User-Agent` for Helminth wiki fetches (see `helminthWiki.ts`).       |

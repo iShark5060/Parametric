@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 const HELMINTH_WIKI_URL = 'https://wiki.warframe.com/w/Helminth';
 const HELMINTH_WIKI_USER_AGENT =
   process.env.HELMINTH_WIKI_USER_AGENT?.trim() ||
-  'Parametric/2.0 (data-import; +https://wiki.warframe.com/w/Helminth)';
+  'Armory/2.0 (data-import; +https://wiki.warframe.com/w/Helminth)';
 
 function normalizeAbilityName(value: string): string {
   return value.replace(/\s+/g, ' ').trim().toLowerCase();

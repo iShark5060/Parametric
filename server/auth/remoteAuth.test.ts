@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 describe('buildAuthLoginUrl', () => {
   it('builds next URL from canonical public base when configured', async () => {
     const original = process.env.APP_PUBLIC_BASE_URL;
-    process.env.APP_PUBLIC_BASE_URL = 'https://parametric.example.com';
+    process.env.APP_PUBLIC_BASE_URL = 'https://armory.example.com';
     try {
       vi.resetModules();
       const { buildAuthLoginUrl } = await import('./remoteAuth.js');
@@ -23,7 +23,7 @@ describe('buildAuthLoginUrl', () => {
       const loginUrl = buildAuthLoginUrl(req);
       const parsed = new URL(loginUrl);
       expect(parsed.pathname).toBe('/login');
-      expect(parsed.searchParams.get('next')).toBe('https://parametric.example.com/builder/builds');
+      expect(parsed.searchParams.get('next')).toBe('https://armory.example.com/builder/builds');
     } finally {
       if (original == null) {
         delete process.env.APP_PUBLIC_BASE_URL;

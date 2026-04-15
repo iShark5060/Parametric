@@ -13,7 +13,7 @@ import {
 export const apiRouter = Router();
 
 apiRouter.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', app: 'Parametric' });
+  res.json({ status: 'ok', app: 'Armory' });
 });
 
 apiRouter.get('/warframes', (_req: Request, res: Response) => {

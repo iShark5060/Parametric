@@ -1,1 +1,1 @@
-export const GAME_ID = 'parametric';
+export const GAME_ID = 'armory';

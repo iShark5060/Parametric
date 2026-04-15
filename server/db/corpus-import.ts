@@ -307,7 +307,7 @@ function importCategory(
         failureCount++;
         const msg = e instanceof Error ? e.message : String(e);
         console.error(
-          `[Corpus] Failed to insert row into ${tableName} (unique_name=${String(extracted.unique_name)}): ${msg}`,
+          `[Armory] Failed to insert row into ${tableName} (unique_name=${String(extracted.unique_name)}): ${msg}`,
         );
       }
     }
@@ -317,7 +317,7 @@ function importCategory(
   return insertMany(items);
 }
 
-export function importAllToCorpus(): ImportResult[] {
+export function importAllToCodexExport(): ImportResult[] {
   const results: ImportResult[] = [];
 
   if (!fs.existsSync(EXPORTS_DIR)) {
@@ -345,7 +345,7 @@ export function importAllToCorpus(): ImportResult[] {
         if (Array.isArray(value)) {
           const tableName = EXPORT_KEY_TO_TABLE[key];
           if (!tableName) {
-            console.log(`[Corpus] Skipping unknown export array: ${key} (${value.length} items)`);
+            console.log(`[Armory] Skipping unknown export array: ${key} (${value.length} items)`);
             continue;
           }
 
@@ -361,15 +361,15 @@ export function importAllToCorpus(): ImportResult[] {
           });
           if (failureCount > 0) {
             console.error(
-              `[Corpus] Imported ${count} items into ${tableName} from ${key} with ${failureCount} insert failures`,
+              `[Armory] Imported ${count} items into ${tableName} from ${key} with ${failureCount} insert failures`,
             );
           } else {
-            console.log(`[Corpus] Imported ${count} items into ${tableName} from ${key}`);
+            console.log(`[Armory] Imported ${count} items into ${tableName} from ${key}`);
           }
         } else if (typeof value === 'object' && value !== null) {
           const tableName = OBJECT_KEY_TO_TABLE[key];
           if (!tableName) {
-            console.log(`[Corpus] Skipping unknown export object: ${key}`);
+            console.log(`[Armory] Skipping unknown export object: ${key}`);
             continue;
           }
 
@@ -383,13 +383,13 @@ export function importAllToCorpus(): ImportResult[] {
             table: tableName,
             count: 1,
           });
-          console.log(`[Corpus] Imported object ${key} into ${tableName}`);
+          console.log(`[Armory] Imported object ${key} into ${tableName}`);
         }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       results.push({ category, table: '', count: 0, error: msg });
-      console.error(`[Corpus] Failed to import ${category}: ${msg}`);
+      console.error(`[Armory] Failed to import ${category}: ${msg}`);
     }
   }
 

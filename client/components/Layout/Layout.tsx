@@ -45,7 +45,7 @@ export function Layout() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const prevUserMenuOpenRef = useRef(false);
-  const userMenuId = 'parametric-user-menu';
+  const userMenuId = 'armory-user-menu';
   const navigate = useNavigate();
   const { snapshots } = useCompare();
   const { mode, toggleMode } = useTheme();

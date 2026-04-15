@@ -1,8 +1,8 @@
 {
-  "name": "parametric",
+  "name": "armory",
   "version": "2.2.0",
   "private": true,
-  "description": "Parametric - Warframe Mod Builder/Planner",
+  "description": "Armory - Warframe Mod Builder/Planner",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.server.json && vite build",

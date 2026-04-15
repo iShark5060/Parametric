@@ -343,15 +343,12 @@ function DataImportAdmin() {
         <Modal
           open={showLogs}
           onClose={() => setShowLogs(false)}
-          ariaLabelledBy="parametric-import-log-title"
-          className="import-log-modal"
+          ariaLabelledBy="armory-import-log-title"
+          className="armory-import-modal"
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h3
-                id="parametric-import-log-title"
-                className="text-foreground text-lg font-semibold"
-              >
+              <h3 id="armory-import-log-title" className="text-foreground text-lg font-semibold">
                 Import Console
               </h3>
               <div className="flex shrink-0 items-center gap-2">
