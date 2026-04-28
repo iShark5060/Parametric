@@ -146,7 +146,7 @@ export function SelectDropdown({
                   aria-selected={isSelected}
                   className={`select-dropdown-item text-xs outline-none ${
                     isSelected ? 'is-selected' : ''
-                  } ${isFocused ? 'ring-1 ring-[color-mix(in_oklab,var(--color-accent)_40%,transparent)]' : ''}`}
+                  }`}
                   onFocus={() => setFocusedIndex(i)}
                   onKeyDown={(ev) => {
                     if (ev.key === 'Enter' || ev.key === ' ') {
